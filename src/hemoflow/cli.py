@@ -100,20 +100,20 @@ def cmd_bench(args: argparse.Namespace) -> int:
         viscosity=cfg.fluid.viscosity_pa_s,
     )
 
-    models = [PoiseuilleBaseline()]
-    runs = _latest_runs(cfg)
-    if runs:
-        from .models.registry import load_surrogate
+    from .training.evaluate import load_runs
 
-        surrogate, _ = load_surrogate(runs[-1])
-        models.append(surrogate)
-    else:
-        print("no trained run found; benchmarking the analytic baseline only", file=sys.stderr)
+    models = [PoiseuilleBaseline()]
+    runs = _latest_runs(cfg) if args.all_runs else _latest_runs(cfg)[-1:]
+    trained, _ = load_runs(cfg, runs)
+    models.extend(trained)
+    if not trained:
+        print("no comparable trained run; benchmarking the analytic baseline only", file=sys.stderr)
 
     payload = run_benchmark(cfg, models, features, context)
+    print(f"feature extraction  {payload['feature_extraction_ms']:.2f} ms per vessel")
     for row in payload["rows"]:
         print(
-            f"{row['model']:<28} p50 {row['p50_ms']:7.2f} ms   "
+            f"{row['model']:<24} p50 {row['p50_ms']:7.2f} ms   "
             f"p95 {row['p95_ms']:7.2f} ms   batch {row['vessels_per_second']:8.1f} vessel/s"
         )
     print(
@@ -153,7 +153,8 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--split", default="test", choices=["train", "val", "test"])
     evaluate.add_argument("--all-runs", action="store_true", help="include every trained run")
 
-    add("bench", "measure inference latency", cmd_bench)
+    bench = add("bench", "measure inference latency", cmd_bench)
+    bench.add_argument("--all-runs", action="store_true", help="include every trained run")
     add("info", "print the resolved config", cmd_info)
     return parser
 

@@ -6,9 +6,10 @@ result can always be reproduced from the config that is committed next to it.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
-from typing import Any, get_type_hints
+from typing import Any, get_args, get_type_hints
 
 import yaml
 
@@ -128,6 +129,33 @@ class Config:
             raise ValueError(f"unknown model '{self.model.name}'")
 
 
+def _coerce_scalar(ftype: Any, raw: Any) -> Any:
+    """Cast a scalar to the type its dataclass field declares.
+
+    This is not defensive politeness, it is load-bearing. YAML 1.1's float
+    resolver requires a decimal point, so `8e-06` - which is exactly what
+    `json.dumps` writes for 8e-6 - parses as the *string* `"8e-06"`, while
+    `1.5e-06` parses as a float. A config written by this package and read back
+    therefore came out with a string where a float belonged, silently changing
+    its hash and, had the field been viscosity rather than a flow bound, its
+    physics.
+
+    Casting against the declared type makes the round-trip lossless whatever the
+    parser hands us.
+    """
+    if ftype is bool:
+        if isinstance(raw, str):
+            return raw.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(raw)
+    if ftype is float:
+        return float(raw)
+    if ftype is int:
+        return int(raw)
+    if ftype is str:
+        return str(raw)
+    return raw
+
+
 def _coerce(cls: type, value: Any) -> Any:
     """Build a (possibly nested) dataclass from plain dict data.
 
@@ -144,21 +172,31 @@ def _coerce(cls: type, value: Any) -> Any:
     unknown = set(value) - known
     if unknown:
         raise ValueError(f"unknown key(s) for {cls.__name__}: {sorted(unknown)}")
+
     kwargs: dict[str, Any] = {}
     for key, raw in value.items():
         ftype = hints.get(key)
         if is_dataclass(ftype):
             kwargs[key] = _coerce(ftype, raw)
-        elif isinstance(raw, list):
-            kwargs[key] = tuple(raw)
+        elif isinstance(raw, (list, tuple)):
+            args = get_args(ftype)
+            element_type = args[0] if args else None
+            kwargs[key] = tuple(_coerce_scalar(element_type, item) for item in raw)
         else:
-            kwargs[key] = raw
+            kwargs[key] = _coerce_scalar(ftype, raw)
     return cls(**kwargs)
 
 
 def load_config(path: str | Path) -> Config:
-    """Read a YAML config, apply defaults, and validate it before anything runs."""
-    raw = yaml.safe_load(Path(path).read_text()) or {}
+    """Read a config file, apply defaults, and validate it before anything runs.
+
+    Accepts YAML for hand-written configs and JSON for the `config.json` written
+    into every run directory. JSON is parsed with `json` rather than through the
+    YAML loader, which is both faster and free of YAML's scalar-resolution quirks.
+    """
+    path = Path(path)
+    text = path.read_text()
+    raw = json.loads(text) if path.suffix == ".json" else (yaml.safe_load(text) or {})
     cfg = _coerce(Config, raw)
     cfg.validate()
     return cfg

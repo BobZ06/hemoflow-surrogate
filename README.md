@@ -49,8 +49,74 @@ make serve                                    # FastAPI on :8000, docs at /docs
 ```
 
 <!-- RESULTS:START -->
-Results are written to `artifacts/reports/` by `hemoflow eval` and
-`hemoflow bench`.
+## Results
+
+512 synthetic vessels on a 128 x 64 grid, scored on 77 held-out vessels never
+seen in training. Targets carry 2% multiplicative noise standing in for solver
+discretisation error, which puts a floor of **1.35% median relative error** under
+anything in this table. Everything below ran on 2 CPU cores.
+
+| model | params | rel. L2 | median rel. err | low-shear rel. err | low-shear Dice | peak err |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **U-Net** | 490,001 | **0.0306** | 1.8% | 1.8% | 0.926 | 3.8% |
+| **MLP** | 35,585 | **0.0310** | 1.9% | 2.0% | 0.928 | 3.2% |
+| Poiseuille (analytic) | 0 | 0.270 | 18.4% | 16.2% | 0.680 | 31.7% |
+| MLP, no physics prior | 35,585 | 0.287 | 18.4% | 17.6% | 0.686 | 16.3% |
+| Ridge on the same features | 13 | 0.327 | 21.4% | 23.9% | 0.676 | 22.6% |
+| Constant (train mean) | 0 | 0.756 | 47.7% | 166% | 0.416 | 67.5% |
+
+Three things worth reading off it.
+
+**The physics prior is the whole ballgame.** The same MLP, same features, same
+budget, differing only in whether it predicts a ratio or absolute pascals:
+0.031 against 0.287, a factor of 9. Without the prior the network does not beat
+the zero-parameter analytic baseline it was supposed to improve on. This is the
+ablation that justifies the design, and it is why `models/physics.py` is the
+longest docstring in the repo.
+
+**The U-Net is not worth its 14x parameter count.** 0.0306 against 0.0310 is
+noise. The honest reading is that the features already encode the upstream
+history a convolution would otherwise have to discover - `throat_ratio` and
+`downstream_of_throat` carry exactly the non-local information the
+post-stenotic recirculation zone depends on. Spatial context is not free
+information here; it was already in the input. That is a negative result and it
+stays in the table.
+
+**Both networks are essentially at the noise floor.** 1.8-1.9% median relative
+error against an irreducible 1.35% means roughly 1.4x the floor. There is very
+little left to win on this dataset, and chasing it would be measuring the noise.
+The error maps below show it directly: structured banding for the baselines,
+unstructured speckle for the networks.
+
+![Reference field, predictions, and error maps](docs/images/fields.png)
+
+A 60% stenosis at arc position 0.6. The reference band tilts across the
+circumference - that is the Dean effect, higher shear on the outer wall of the
+bend. The analytic baseline's band is perfectly horizontal, because Poiseuille
+flow has no angular dependence at all, and its error map shows the resulting
+structure at 20.9%. Both networks reproduce the tilt and leave only speckle.
+Bottom row is the ablation: right shape, wrong scale, systematically.
+
+### Latency
+
+| model | p50 | p95 | batch throughput |
+| --- | ---: | ---: | ---: |
+| Poiseuille | 0.08 ms | 0.12 ms | 7,100 vessel/s |
+| MLP | 5.2 ms | 6.0 ms | 59 vessel/s |
+| U-Net | 9.7 ms | 11.9 ms | 67 vessel/s |
+
+Single-vessel, end to end, including the 0.6 ms of feature extraction - which is
+a real part of query cost and is reported rather than quietly excluded. Batch
+throughput is listed separately because it answers a different question (offline
+cohort processing) and quoting it as interactive latency is how these claims get
+inflated.
+
+Against a **4-hour assumed** CFD solve, 5.2 ms is a ~2.8e6 speedup. That
+denominator is an assumption taken from typical published patient-specific runs,
+not something measured here, and `reports/latency.json` records it as such.
+
+Reproduce with `hemoflow eval --config configs/mlp.yaml --all-runs` and
+`hemoflow bench --config configs/mlp.yaml --all-runs`.
 <!-- RESULTS:END -->
 
 ## Three decisions that carry the project
@@ -116,7 +182,7 @@ src/hemoflow/
   training/          training loop, benchmark harness, metrics
   serving/           FastAPI service, latency benchmark
 configs/             one file per experiment
-tests/               57 tests; properties, not smoke
+tests/               71 tests; properties, not smoke
 scripts/             setup, end-to-end smoke, figures
 docs/                architecture, roadmap
 ```

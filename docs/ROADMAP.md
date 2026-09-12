@@ -21,7 +21,9 @@ value per hour, which during a build weekend is the only ordering that matters.
   run directories.
 - FastAPI inference service with validated clinical units and per-request timing.
 - Latency benchmark separating interactive p50 from batched throughput.
-- 57 tests, CI with lint, matrix tests and an end-to-end smoke run.
+- Benchmark results: both networks reach ~1.8% median relative error against a
+  1.35% label-noise floor, and the physics-prior ablation costs a factor of 9.
+- 71 tests, CI with lint, matrix tests and an end-to-end smoke run.
 
 ## Next, in order
 

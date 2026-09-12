@@ -23,18 +23,42 @@ from hemoflow.models.base import VesselContext
 from hemoflow.models.baselines import PoiseuilleBaseline
 
 
-def _latest_run(cfg: Config) -> Path | None:
+def _runs(cfg: Config) -> list[Path]:
     runs = Path(cfg.paths.runs)
     if not runs.exists():
-        return None
-    candidates = [p for p in runs.iterdir() if (p / "weights.pt").exists()]
-    return max(candidates, key=lambda p: p.stat().st_mtime) if candidates else None
+        return []
+    return sorted(
+        (p for p in runs.iterdir() if (p / "weights.pt").exists()),
+        key=lambda p: p.stat().st_mtime,
+    )
+
+
+def _most_stenotic(features: np.ndarray) -> int:
+    """Index of the test vessel with the deepest narrowing.
+
+    A vessel with a monotone taper is a soft case that makes every model look
+    similar. The interesting picture is the one with a throat, where the
+    analytic baseline's blindness to separation and circumferential variation
+    actually shows.
+    """
+    # Channel 0 is log(r / r_inlet); the most negative minimum is the tightest.
+    return int(np.argmin(features[:, :, 0, 0].min(axis=1)))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=None)
-    parser.add_argument("--index", type=int, default=0, help="which test vessel to plot")
+    parser.add_argument(
+        "--index",
+        type=int,
+        default=None,
+        help="which test vessel to plot (default: the most stenotic)",
+    )
+    parser.add_argument(
+        "--run",
+        default=None,
+        help="run directory to plot (default: every trained run for this dataset)",
+    )
     parser.add_argument("--out", default=None, help="output directory")
     args = parser.parse_args()
 
@@ -56,15 +80,20 @@ def main() -> int:
         viscosity=cfg.fluid.viscosity_pa_s,
     )
 
-    models = [("poiseuille", PoiseuilleBaseline())]
-    run_dir = _latest_run(cfg)
-    if run_dir is not None:
-        from hemoflow.models.registry import load_surrogate
+    # Reuse the benchmark's loader so figures and tables label models identically
+    # and apply the same "trained on this dataset" filter.
+    from hemoflow.training.evaluate import load_runs
 
-        surrogate, run_cfg = load_surrogate(run_dir)
-        models.append((f"{run_cfg.model.name}", surrogate))
+    run_dirs = [Path(args.run)] if args.run else _runs(cfg)
+    trained, skipped = load_runs(cfg, run_dirs)
+    if skipped:
+        print(f"skipped (different dataset): {', '.join(skipped)}")
 
-    i = args.index
+    models: list[tuple[str, object]] = [("poiseuille", PoiseuilleBaseline())]
+    models += [(m.name, m) for m in trained]
+
+    i = args.index if args.index is not None else _most_stenotic(features)
+    print(f"plotting test vessel {i}")
     truth = targets[i]
     fig, axes = plt.subplots(
         len(models) + 1, 2, figsize=(11, 3.1 * (len(models) + 1)), constrained_layout=True
@@ -132,18 +161,19 @@ def main() -> int:
     plt.close(fig)
     print(f"wrote {path}")
 
-    # Training curves, when a run exists.
-    if run_dir is not None and (run_dir / "history.json").exists():
+    # Training curves for the last trained run plotted.
+    curve_run = run_dirs[-1] if run_dirs else None
+    if curve_run is not None and (curve_run / "history.json").exists():
         from hemoflow.utils import read_json
 
-        history = read_json(run_dir / "history.json")
+        history = read_json(curve_run / "history.json")
         fig, ax = plt.subplots(figsize=(6, 3.6), constrained_layout=True)
         ax.plot([h["epoch"] for h in history], [h["train_loss"] for h in history], label="train")
         ax.plot([h["epoch"] for h in history], [h["val_loss"] for h in history], label="val")
         ax.set_yscale("log")
         ax.set_xlabel("epoch")
         ax.set_ylabel("MSE (normalised log space)")
-        ax.set_title(f"{run_dir.name}", fontsize=10)
+        ax.set_title(f"{curve_run.name}", fontsize=10)
         ax.legend()
         ax.grid(alpha=0.3)
         curve_path = out_dir / "training_curve.png"
