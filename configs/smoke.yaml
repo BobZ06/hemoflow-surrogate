@@ -1,0 +1,26 @@
+# Tiny config used by `make smoke` and CI: runs end to end in well under a minute.
+name: smoke
+seed: 1337
+
+geometry:
+  n_arc: 64
+  n_theta: 32
+  length_m: 0.06
+  base_radius_m: 0.0025
+  max_stenosis: 0.55
+  curvature_scale: 0.0010
+
+data:
+  n_geometries: 64
+  seed: 1337
+  noise_sigma: 0.02
+
+model:
+  name: mlp
+  hidden_dims: [64, 64]
+
+train:
+  epochs: 5
+  batch_size: 8
+  lr: 0.003
+  patience: 5

@@ -1,0 +1,30 @@
+# Ablation: the same MLP, with the physics prior switched off.
+#
+# The network now has to emit absolute pascals from dimensionless features,
+# which it cannot do in principle - Reynolds carries Q/r, shear needs Q/r^3.
+# Expect it to look passable on this dataset (one calibre band) and to fail
+# completely on any vessel of a different size. See models/physics.py.
+name: mlp-no-physics
+seed: 1337
+
+geometry:
+  n_arc: 128
+  n_theta: 64
+
+data:
+  n_geometries: 512
+  seed: 1337
+  noise_sigma: 0.02
+
+model:
+  name: mlp
+  hidden_dims: [128, 128, 128]
+  physics_residual: false
+
+train:
+  epochs: 60
+  batch_size: 16
+  lr: 0.0008
+  weight_decay: 0.00001
+  patience: 10
+  log_space: true

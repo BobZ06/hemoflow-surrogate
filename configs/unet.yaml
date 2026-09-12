@@ -1,0 +1,36 @@
+# U-Net over the unwrapped (arc x circumference) field.
+#
+# Convolves over the neighbourhood, so it can represent the post-stenotic
+# recirculation zone, where shear at a node is set by geometry several diameters
+# upstream. Uses circular padding around the circumference and replicate padding
+# along the axis - see models/nets.py::MixedPadConv2d for why that matters.
+#
+# n_arc and n_theta must both be divisible by 2**depth.
+#
+# Sized to finish in roughly 20 minutes on a laptop CPU. Convolutional models on
+# a smooth field converge fast, so the epoch budget is much smaller than the
+# MLP's; raise `epochs` and `base_channels` if you have a GPU.
+name: unet
+seed: 1337
+
+geometry:
+  n_arc: 128
+  n_theta: 64
+
+data:
+  n_geometries: 512
+  seed: 1337
+  noise_sigma: 0.02
+
+model:
+  name: unet
+  base_channels: 16
+  depth: 3
+
+train:
+  epochs: 18
+  batch_size: 16
+  lr: 0.0008
+  weight_decay: 0.00001
+  patience: 6
+  log_space: true
