@@ -25,8 +25,8 @@ from ..geometry import extract_features, reference_wss, vessel_from_profile
 from ..models.base import VesselContext
 from ..training.metrics import LOW_SHEAR_THRESHOLD_PA
 from ..utils import read_json
-
-RUN_DIR_ENV = "HEMOFLOW_RUN_DIR"
+from . import RUN_DIR_ENV
+from .demo import router as demo_router
 
 
 class PredictRequest(BaseModel):
@@ -79,6 +79,11 @@ app = FastAPI(
     version="0.1.0",
     description="Neural surrogate for vascular wall shear stress.",
 )
+
+# The demo lives in its own module and is mounted here. It reads the same
+# checkpoints through the same loader, so the page can never show a number the
+# service would not also return.
+app.include_router(demo_router)
 
 _state: dict[str, Any] = {"surrogate": None, "config": None, "run_dir": None}
 

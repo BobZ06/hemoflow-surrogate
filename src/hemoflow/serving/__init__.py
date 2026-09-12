@@ -18,8 +18,21 @@ from .bench import (
 if TYPE_CHECKING:  # pragma: no cover
     from .api import app
 
+RUN_DIR_ENV = "HEMOFLOW_RUN_DIR"
+"""Pins the checkpoint the service and the demo load, instead of "newest run"."""
+
+ABLATION_RUN_DIR_ENV = "HEMOFLOW_ABLATION_RUN_DIR"
+"""Pins the no-physics-prior checkpoint behind the demo's ablation switch.
+
+Both names live here rather than in `api` or `demo` because both modules read
+them and neither may import the other: `api` mounts `demo`, so a reference the
+other way would close the cycle.
+"""
+
 __all__ = [
+    "ABLATION_RUN_DIR_ENV",
     "CFD_REFERENCE_SECONDS",
+    "RUN_DIR_ENV",
     "app",
     "measure_batch_throughput",
     "measure_latency",

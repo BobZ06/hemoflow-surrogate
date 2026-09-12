@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230e1319'/%3E%3Cpath d='M1 8h4l3-5 3 10 2-5h2' stroke='%23319e89' stroke-width='1.4' fill='none'/%3E%3C/svg%3E">
+<title>hemoflow &middot; wall shear stress, live</title>
+<style>
+  /* ------------------------------------------------------------------
+     Instrument, not dashboard.
+
+     One rule governs the palette: the chrome is achromatic so that the only
+     saturated colour on screen belongs to the data. Viridis carries wall
+     shear stress because it is perceptually uniform and survives a projector
+     at the back of a room. A single reserved vermilion marks atheroprone
+     tissue and appears nowhere else, so red always means "this is the
+     territory at risk". A muted green marks the range the model was trained
+     on, and appears nowhere else either.
+     ------------------------------------------------------------------ */
+  :root {
+    --ground: #0e1319;
+    --panel: #151c25;
+    --panel-2: #1b2430;
+    --line: #27323f;
+    --line-bright: #3a4a5c;
+    --ink: #e3ebf4;
+    --ink-2: #9dabbd;
+    --ink-3: #66748a;
+    --risk: #ff5c3c;
+    --trained: #3f7a63;
+    --ok: #7fd4a8;
+    --radius: 3px;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+            "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100vh;
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: 0 20px 14px;
+  }
+
+  /* ---- masthead ---------------------------------------------------- */
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 14px 2px 11px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h1 { margin: 0; font-size: 19px; font-weight: 620; letter-spacing: -0.015em; }
+
+  .strap { color: var(--ink-2); font-size: 13.5px; margin: 0; max-width: 60ch; }
+
+  .ident {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    text-align: right;
+    line-height: 1.65;
+    white-space: nowrap;
+  }
+  .ident b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---- body grid --------------------------------------------------- */
+
+  main {
+    display: grid;
+    grid-template-columns: 278px minmax(0, 1fr);
+    gap: 20px;
+    padding-top: 13px;
+    align-content: start;
+  }
+
+  .rail { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+
+  .group {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 11px 13px 13px;
+  }
+
+  .group > h2 {
+    margin: 0 0 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  /* ---- sliders, with the training range drawn on the track --------- */
+
+  .ctl { margin-bottom: 11px; }
+  .ctl:last-child { margin-bottom: 0; }
+
+  .ctl-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .ctl-head label { font-size: 12.5px; color: var(--ink-2); }
+  .ctl-head output {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .ctl[data-outside="true"] .ctl-head output { color: var(--risk); }
+
+  .track { position: relative; height: 18px; }
+
+  .track .rail,
+  .track .env {
+    position: absolute;
+    top: 50%;
+    height: 3px;
+    margin-top: -1.5px;
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .track .rail { left: 0; right: 0; background: var(--line-bright); }
+  .track .env { background: var(--trained); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 100%;
+    height: 18px;
+    margin: 0;
+    background: transparent;
+    cursor: ew-resize;
+    display: block;
+  }
+  input[type="range"]::-webkit-slider-runnable-track { height: 3px; background: transparent; }
+  input[type="range"]::-moz-range-track { height: 3px; background: transparent; }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px; height: 13px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 2px solid var(--ground);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 2px solid var(--ground);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--ink-2); outline-offset: 3px; }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--ink-3);
+  }
+  .legend i { width: 15px; height: 3px; border-radius: 2px; background: var(--trained); }
+
+  /* ---- presets ----------------------------------------------------- */
+
+  .presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+
+  button.preset {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink-2);
+    background: var(--panel-2);
+    border: 1px solid var(--line-bright);
+    border-radius: var(--radius);
+    padding: 7px 8px;
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.3;
+  }
+  button.preset:hover { color: var(--ink); border-color: var(--ink-3); }
+  button.preset[aria-pressed="true"] { color: var(--ink); border-color: var(--ink-2); background: #212c3a; }
+
+  button.preset span { color: var(--ink-3); }
+
+  /* ---- the one control that changes the science -------------------- */
+
+  .switch {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line-bright);
+    border-radius: var(--radius);
+    padding: 10px 11px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+    text-align: left;
+  }
+  .switch:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .switch .led {
+    flex: none;
+    width: 30px; height: 16px;
+    border-radius: 9px;
+    background: var(--line-bright);
+    position: relative;
+    transition: background 140ms ease;
+  }
+  .switch .led::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--ground);
+    transition: transform 140ms ease;
+  }
+  .switch[aria-pressed="true"] .led { background: var(--ok); }
+  .switch[aria-pressed="true"] .led::after { transform: translateX(14px); }
+
+  .switch .lines strong { display: block; font-size: 12.5px; font-weight: 550; }
+  .switch .lines span { display: block; font-size: 11.5px; color: var(--ink-3); }
+
+  .score { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px 16px; }
+  .score dt { font-size: 11.5px; color: var(--ink-3); grid-row: 1; }
+  .score dd {
+    margin: 0;
+    grid-row: 2;
+    font-family: var(--mono);
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .note { margin: 9px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+  .note code { font-family: var(--mono); font-size: 11px; }
+
+  /* ---- viewport ---------------------------------------------------- */
+
+  .stage { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px 13px 12px;
+    min-width: 0;
+  }
+
+  .frame-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 9px;
+    flex-wrap: wrap;
+  }
+  .frame-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .frame-head p { margin: 0; font-size: 12px; color: var(--ink-3); }
+
+  canvas { display: block; width: 100%; border-radius: 2px; }
+  #artery { height: 244px; background: #0a0e13; }
+
+  .maps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .map h3 {
+    margin: 0 0 5px;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--ink-2);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .map h3 em { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .map canvas { height: 118px; background: #0a0e13; }
+
+  .scale { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
+  .scale canvas { height: 9px; flex: 1; }
+  .scale span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+
+  .risk-key { display: inline-flex; align-items: center; gap: 6px; }
+  .risk-key i { width: 16px; height: 3px; background: var(--risk); border-radius: 2px; display: inline-block; }
+
+  /* ---- readout strip ----------------------------------------------- */
+
+  footer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px;
+    margin-top: 12px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .readout { background: var(--panel); padding: 9px 13px 10px; margin: 0; }
+  .readout dt { font-size: 11.5px; color: var(--ink-3); margin: 0 0 3px; }
+  .readout dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .readout dd small { font-size: 12px; color: var(--ink-2); letter-spacing: 0; }
+  .readout dd.flash { animation: flash 560ms ease-out; }
+  .readout dd.alarm { color: var(--risk); }
+
+  @keyframes flash {
+    0% { background: rgba(255, 92, 60, 0.30); }
+    100% { background: transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .readout dd.flash { animation: none; }
+    .switch .led, .switch .led::after { transition: none; }
+  }
+
+  .banner {
+    margin: 0;
+    padding: 10px 13px;
+    border: 1px solid var(--line-bright);
+    border-left-width: 3px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .banner strong { color: var(--ink); font-weight: 550; }
+  .banner[data-tone="risk"] { border-color: var(--risk); background: rgba(255, 92, 60, 0.08); }
+  .banner[hidden] { display: none; }
+
+  @media (max-width: 1080px) {
+    main { grid-template-columns: 1fr; }
+    .maps { grid-template-columns: 1fr; }
+    .ident { margin-left: 0; text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <h1>hemoflow</h1>
+    <p class="strap">
+      Wall shear stress across a stenosed artery, solved while you drag.
+      The same field a 3D CFD run computes overnight.
+    </p>
+    <div class="ident" id="ident">connecting&hellip;</div>
+  </header>
+
+  <main>
+    <div class="rail">
+
+      <section class="group">
+        <h2>Lesion</h2>
+
+        <div class="ctl" id="c-sev">
+          <div class="ctl-head"><label for="sev">Stenosis severity</label><output id="sev-v"></output></div>
+          <div class="track"><span class="rail"></span><span class="env" id="env-sev"></span>
+            <input type="range" id="sev" min="0" max="85" step="1" value="50"></div>
+        </div>
+
+        <div class="ctl">
+          <div class="ctl-head"><label for="pos">Throat position</label><output id="pos-v"></output></div>
+          <div class="track"><span class="rail"></span>
+            <input type="range" id="pos" min="0.15" max="0.85" step="0.01" value="0.6"></div>
+        </div>
+
+        <div class="ctl">
+          <div class="ctl-head"><label for="wid">Lesion length</label><output id="wid-v"></output></div>
+          <div class="track"><span class="rail"></span>
+            <input type="range" id="wid" min="0.05" max="0.2" step="0.005" value="0.1"></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Vessel and flow</h2>
+
+        <div class="ctl" id="c-dia">
+          <div class="ctl-head"><label for="dia">Healthy diameter</label><output id="dia-v"></output></div>
+          <div class="track"><span class="rail"></span><span class="env" id="env-dia"></span>
+            <input type="range" id="dia" min="0" max="1000" step="1" value="0"></div>
+        </div>
+
+        <div class="ctl">
+          <div class="ctl-head"><label for="cur">Tortuosity</label><output id="cur-v"></output></div>
+          <div class="track"><span class="rail"></span>
+            <input type="range" id="cur" min="0" max="40" step="0.5" value="8"></div>
+        </div>
+
+        <div class="ctl" id="c-flo">
+          <div class="ctl-head"><label for="flo">Inflow</label><output id="flo-v"></output></div>
+          <div class="track"><span class="rail"></span><span class="env" id="env-flo"></span>
+            <input type="range" id="flo" min="0" max="1000" step="1" value="0"></div>
+        </div>
+
+        <p class="legend"><i></i> range this checkpoint was trained on</p>
+      </section>
+
+      <section class="group">
+        <h2>Physics prior</h2>
+        <button class="switch" id="prior" aria-pressed="true" type="button">
+          <span class="led" aria-hidden="true"></span>
+          <span class="lines">
+            <strong>Scale from Poiseuille</strong>
+            <span>Network predicts a ratio</span>
+          </span>
+        </button>
+        <p class="note" id="prior-note">
+          On, the network predicts <code>&tau;&nbsp;/&nbsp;&tau;<sub>Poiseuille</sub></code>
+          and the analytic solution supplies absolute scale. Off, the same network
+          with the same features has to emit pascals directly.
+        </p>
+      </section>
+
+    </div>
+
+    <div class="stage">
+
+      <div class="presets" id="presets"></div>
+
+      <section class="frame">
+        <div class="frame-head">
+          <h2>Longitudinal section</h2>
+          <p>Wall colour is shear stress.
+            <span class="risk-key"><i></i> atheroprone, below <span id="thr">1</span>&nbsp;Pa</span></p>
+        </div>
+        <canvas id="artery"></canvas>
+      </section>
+
+      <section class="frame">
+        <div class="frame-head">
+          <h2>Unwrapped lumen surface</h2>
+          <p>Horizontal: inlet to outlet. Vertical: once around the circumference.</p>
+        </div>
+        <div class="maps">
+          <div class="map">
+            <h3>Surrogate <em id="t-surrogate"></em></h3>
+            <canvas id="m-surrogate"></canvas>
+          </div>
+          <div class="map">
+            <h3>Reference solver <em id="t-reference"></em></h3>
+            <canvas id="m-reference"></canvas>
+          </div>
+          <div class="map">
+            <h3>Difference <em>&plusmn;10%</em></h3>
+            <canvas id="m-error"></canvas>
+          </div>
+        </div>
+        <div class="scale">
+          <span>0&nbsp;Pa</span>
+          <canvas id="bar" height="9"></canvas>
+          <span id="bar-max"></span>
+        </div>
+      </section>
+
+      <p class="banner" id="banner" hidden></p>
+
+      <section class="frame" id="scorecard" hidden>
+        <div class="frame-head">
+          <h2>This checkpoint, on 77 held-out vessels</h2>
+          <p>Targets carry 2% multiplicative noise — a floor of about 1.35% median relative error.</p>
+        </div>
+        <dl class="score" id="score-list"></dl>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <dl class="readout"><dt>Query time</dt><dd id="r-latency">&mdash;</dd></dl>
+    <dl class="readout"><dt>Against a 4&nbsp;h CFD solve</dt><dd id="r-speedup">&mdash;</dd></dl>
+    <dl class="readout"><dt>Peak shear</dt><dd id="r-peak">&mdash;</dd></dl>
+    <dl class="readout"><dt>Atheroprone area</dt><dd id="r-low">&mdash;</dd></dl>
+    <dl class="readout"><dt>Agreement with reference</dt><dd id="r-dice">&mdash;</dd></dl>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   Colour
+   ===================================================================== */
+
+/* Viridis, sampled every tenth and interpolated. Perceptually uniform and
+   still readable in greyscale, which matters when this ends up on a
+   projector or in a screenshot. */
+const VIRIDIS = [
+  [68, 1, 84], [72, 40, 120], [62, 74, 137], [49, 104, 142], [38, 130, 142],
+  [31, 158, 137], [53, 183, 121], [109, 205, 89], [180, 222, 44], [253, 231, 37],
+];
+
+/* The difference map is diverging and near-invisible at zero, so structure in
+   the residual is what catches the eye rather than its mere existence. */
+const DIVERGING = [
+  [60, 110, 175], [110, 150, 195], [160, 180, 200], [38, 46, 56],
+  [205, 175, 160], [215, 130, 105], [205, 75, 50],
+];
+
+function ramp(table, t) {
+  t = t <= 0 ? 0 : t >= 1 ? 1 : t;
+  const x = t * (table.length - 1);
+  const i = Math.min(Math.floor(x), table.length - 2);
+  const f = x - i;
+  const a = table[i], b = table[i + 1];
+  return [
+    (a[0] + (b[0] - a[0]) * f) | 0,
+    (a[1] + (b[1] - a[1]) * f) | 0,
+    (a[2] + (b[2] - a[2]) * f) | 0,
+  ];
+}
+
+const css = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+const el = (id) => document.getElementById(id);
+
+/* =====================================================================
+   Log-scaled controls
+
+   Diameter spans capillary to aorta and inflow spans four decades. A linear
+   slider would spend nine tenths of its travel inside the normal range and
+   make the out-of-distribution half unreachable, which is the half worth
+   showing.
+   ===================================================================== */
+
+function logScale(lo, hi) {
+  const a = Math.log(lo), b = Math.log(hi);
+  return {
+    toValue: (s) => Math.exp(a + (s / 1000) * (b - a)),
+    toSlider: (v) => Math.round(((Math.log(v) - a) / (b - a)) * 1000),
+  };
+}
+
+const DIA = logScale(0.02, 14);
+const FLO = logScale(0.02, 25);
+
+/* =====================================================================
+   Presets. Each is a case, not a parameter sweep: the numbers were chosen
+   so that the thing the label names is actually visible on screen.
+   ===================================================================== */
+
+const PRESETS = [
+  { label: "Healthy vessel", hint: "no lesion, normal flow",
+    v: { sev: 0, pos: 0.6, wid: 0.10, dia: 4.6, cur: 6, flo: 4.5 } },
+  { label: "Moderate stenosis", hint: "45% narrowing",
+    v: { sev: 45, pos: 0.5, wid: 0.11, dia: 4.6, cur: 8, flo: 2.8 } },
+  { label: "Low-shear zone", hint: "60%, wide and slow",
+    v: { sev: 60, pos: 0.6, wid: 0.10, dia: 5.0, cur: 10, flo: 3.0 } },
+  { label: "Tortuous bend", hint: "sharp curve, Dean effect",
+    v: { sev: 40, pos: 0.55, wid: 0.12, dia: 4.4, cur: 36, flo: 3.4 } },
+  { label: "Arteriole", hint: "0.4 mm — outside the training range",
+    v: { sev: 40, pos: 0.5, wid: 0.12, dia: 0.4, cur: 0, flo: 0.05 } },
+];
+
+function readControls() {
+  return {
+    stenosis_pct: +el("sev").value,
+    stenosis_position: +el("pos").value,
+    stenosis_width: +el("wid").value,
+    inlet_diameter_mm: DIA.toValue(+el("dia").value),
+    length_mm: 60,
+    curvature_per_m: +el("cur").value,
+    flow_ml_s: FLO.toValue(+el("flo").value),
+    physics_prior: el("prior").getAttribute("aria-pressed") === "true",
+  };
+}
+
+function paintLabels() {
+  const d = DIA.toValue(+el("dia").value);
+  const f = FLO.toValue(+el("flo").value);
+  el("sev-v").textContent = (+el("sev").value).toFixed(0) + "% diameter";
+  el("pos-v").textContent = (+el("pos").value * 100).toFixed(0) + "% along";
+  el("wid-v").textContent = (+el("wid").value * 100).toFixed(1) + "% of length";
+  el("dia-v").textContent = d < 1 ? (d * 1000).toFixed(0) + " µm" : d.toFixed(2) + " mm";
+  el("cur-v").textContent = (+el("cur").value).toFixed(1) + " m⁻¹";
+  el("flo-v").textContent = f < 1 ? f.toFixed(3) + " mL/s" : f.toFixed(2) + " mL/s";
+  markEnvelope();
+}
+
+/* ---- the training envelope, drawn onto the tracks ------------------- */
+
+let ENVELOPE = null;
+
+function paintEnvelope() {
+  if (!ENVELOPE) return;
+  const place = (node, from, to) => {
+    node.style.left = (from * 100).toFixed(2) + "%";
+    node.style.width = Math.max(0, (to - from) * 100).toFixed(2) + "%";
+  };
+  const sev = ENVELOPE.stenosis_pct;
+  place(el("env-sev"), sev[0] / 85, Math.min(sev[1], 85) / 85);
+
+  const dia = ENVELOPE.inlet_diameter_mm;
+  place(el("env-dia"), DIA.toSlider(dia[0]) / 1000, DIA.toSlider(dia[1]) / 1000);
+
+  const flo = ENVELOPE.flow_ml_s;
+  place(el("env-flo"), FLO.toSlider(flo[0]) / 1000, FLO.toSlider(flo[1]) / 1000);
+}
+
+function markEnvelope() {
+  if (!ENVELOPE) return 0;
+  const checks = [
+    ["c-sev", +el("sev").value, ENVELOPE.stenosis_pct],
+    ["c-dia", DIA.toValue(+el("dia").value), ENVELOPE.inlet_diameter_mm],
+    ["c-flo", FLO.toValue(+el("flo").value), ENVELOPE.flow_ml_s],
+  ];
+  let outside = 0;
+  for (const [id, value, range] of checks) {
+    const out = value < range[0] || value > range[1];
+    el(id).dataset.outside = String(out);
+    if (out) outside += 1;
+  }
+  return outside;
+}
+
+function applyPreset(preset, index) {
+  el("sev").value = preset.v.sev;
+  el("pos").value = preset.v.pos;
+  el("wid").value = preset.v.wid;
+  el("dia").value = DIA.toSlider(preset.v.dia);
+  el("cur").value = preset.v.cur;
+  el("flo").value = FLO.toSlider(preset.v.flo);
+  document.querySelectorAll("button.preset").forEach((b, i) =>
+    b.setAttribute("aria-pressed", String(i === index)));
+  paintLabels();
+  request();
+}
+
+function buildPresets() {
+  const host = el("presets");
+  PRESETS.forEach((preset, i) => {
+    const b = document.createElement("button");
+    b.className = "preset";
+    b.type = "button";
+    b.setAttribute("aria-pressed", "false");
+    b.appendChild(document.createTextNode(preset.label));
+    b.appendChild(document.createElement("br"));
+    const hint = document.createElement("span");
+    hint.textContent = preset.hint;
+    b.appendChild(hint);
+    b.addEventListener("click", () => applyPreset(preset, i));
+    host.appendChild(b);
+  });
+}
+
+/* =====================================================================
+   Canvas
+   ===================================================================== */
+
+function fit(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.round(rect.width * dpr));
+  const h = Math.max(1, Math.round(rect.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+/* The field arrives as [n_arc][n_theta]. Drawing it at native resolution on an
+   offscreen canvas and letting the browser scale it up is both faster than
+   filling rectangles and gives smooth interpolation for free. */
+function drawField(canvas, field, toColour) {
+  const nArc = field.length, nTheta = field[0].length;
+  const off = document.createElement("canvas");
+  off.width = nArc; off.height = nTheta;
+  const offCtx = off.getContext("2d");
+  const image = offCtx.createImageData(nArc, nTheta);
+  const data = image.data;
+  for (let a = 0; a < nArc; a++) {
+    const column = field[a];
+    for (let t = 0; t < nTheta; t++) {
+      const c = toColour(column[t]);
+      const p = ((t * nArc) + a) * 4;
+      data[p] = c[0]; data[p + 1] = c[1]; data[p + 2] = c[2]; data[p + 3] = 255;
+    }
+  }
+  offCtx.putImageData(image, 0, 0);
+
+  const { ctx, w, h } = fit(canvas);
+  ctx.clearRect(0, 0, w, h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(off, 0, 0, w, h);
+}
+
+function drawColourBar(canvas) {
+  const { ctx, w, h } = fit(canvas);
+  for (let x = 0; x < w; x++) {
+    ctx.fillStyle = css(ramp(VIRIDIS, x / Math.max(w - 1, 1)));
+    ctx.fillRect(x, 0, 1, h);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   The artery view.
+
+   The lumen is drawn as the dark channel the blood occupies; the two walls
+   are stroked segment by segment in the field's own colour, because wall
+   shear stress is a quantity that lives on the wall and drawing it anywhere
+   else would misrepresent it. Segments below the atheroprone threshold carry
+   a vermilion rule on the outside.
+   --------------------------------------------------------------------- */
+function drawArtery(canvas, walls, vmax, threshold) {
+  const { ctx, w, h } = fit(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  /* A straightened view, the way a curved planar reformat presents a vessel on
+     a workstation: arc length runs left to right and the wall sits at +/- the
+     local radius. A 30-degree bend drawn in place throws the vessel diagonally
+     across a frame seven times wider than it is tall and hides the one thing
+     the view exists to show, which is where the lumen narrows. Nothing is lost
+     - the bend's signature is the difference in shear between the two walls,
+     and that is exactly what the colour carries.
+
+     The radius is magnified by a stated factor, because 60 mm of vessel 4.6 mm
+     across is a hairline at true scale. */
+  const n = walls.outer.length;
+  const arc = new Array(n);
+  const radius = new Array(n);
+  let travelled = 0;
+  let maxRadius = 1e-9;
+  for (let i = 0; i < n; i++) {
+    const o = walls.outer[i], v = walls.inner[i];
+    const cz = (o.z + v.z) / 2, cx = (o.x + v.x) / 2;
+    if (i > 0) {
+      const pz = (walls.outer[i - 1].z + walls.inner[i - 1].z) / 2;
+      const px = (walls.outer[i - 1].x + walls.inner[i - 1].x) / 2;
+      travelled += Math.hypot(cz - pz, cx - px);
+    }
+    arc[i] = travelled;
+    radius[i] = Math.hypot(o.z - v.z, o.x - v.x) / 2;
+    if (radius[i] > maxRadius) maxRadius = radius[i];
+  }
+
+  const padX = 30, padY = 34;
+  const scale = (w - 2 * padX) / Math.max(travelled, 1e-9);
+  const k = Math.max(1, Math.min(80, (0.34 * h) / Math.max(maxRadius * scale, 1e-9)));
+  const midY = h / 2;
+  const X = (i) => padX + arc[i] * scale;
+  const Y = (i, side) => midY - side * radius[i] * k * scale;
+
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) { i ? ctx.lineTo(X(i), Y(i, 1)) : ctx.moveTo(X(i), Y(i, 1)); }
+  for (let i = n - 1; i >= 0; i--) ctx.lineTo(X(i), Y(i, -1));
+  ctx.closePath();
+  ctx.fillStyle = "#171f29";
+  ctx.fill();
+
+  const wallWidth = 4.5;
+
+  for (const side of [1, -1]) {
+    const trace = side === 1 ? walls.outer : walls.inner;
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = wallWidth;
+    for (let i = 0; i < n - 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(X(i), Y(i, side));
+      ctx.lineTo(X(i + 1), Y(i + 1, side));
+      ctx.strokeStyle = css(ramp(VIRIDIS, ((trace[i].wss + trace[i + 1].wss) / 2) / vmax));
+      ctx.stroke();
+    }
+
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#ff5c3c";
+    for (let i = 0; i < n - 1; i++) {
+      if ((trace[i].wss + trace[i + 1].wss) / 2 >= threshold) continue;
+      const dy = -side * (wallWidth / 2 + 5);
+      ctx.beginPath();
+      ctx.moveTo(X(i), Y(i, side) + dy);
+      ctx.lineTo(X(i + 1), Y(i + 1, side) + dy);
+      ctx.stroke();
+    }
+  }
+
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#66748a";
+  ctx.fillText("flow →", 8, 14);
+  ctx.fillText("outer wall of the bend", 8, 30);
+  ctx.textAlign = "right";
+  ctx.fillText("straightened along the centerline · radius ×" + k.toFixed(1), w - 8, h - 13);
+  ctx.textAlign = "left";
+}
+
+/* =====================================================================
+   Request cycle. One request in flight at a time, with the most recent slider
+   position coalesced into the next one - a drag must never queue a hundred
+   requests behind it.
+   ===================================================================== */
+
+let inFlight = false;
+let queued = false;
+let lastPrior = true;
+let THRESHOLD = 1.0;
+
+function setBanner(html, tone) {
+  const banner = el("banner");
+  if (!html) { banner.hidden = true; return; }
+  banner.hidden = false;
+  banner.dataset.tone = tone || "";
+  banner.innerHTML = html;
+}
+
+function flash(node) {
+  node.classList.remove("flash");
+  void node.offsetWidth;
+  node.classList.add("flash");
+}
+
+async function request() {
+  if (inFlight) { queued = true; return; }
+  const body = readControls();
+  inFlight = true;
+  try {
+    const response = await fetch("demo/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      setBanner(detail.detail || `Request failed (${response.status}).`, "risk");
+      return;
+    }
+    render(await response.json(), body);
+  } catch (err) {
+    setBanner("Cannot reach the service. Is <strong>make demo</strong> still running?", "risk");
+  } finally {
+    inFlight = false;
+    if (queued) { queued = false; request(); }
+  }
+}
+
+function render(result, body) {
+  const surrogate = result.fields.surrogate;
+  const reference = result.fields.reference;
+
+  /* One scale for both maps, taken from the reference, so a difference between
+     the panels is a difference in the field and never a difference in how each
+     was normalised. */
+  let vmax = 1e-6;
+  for (const column of reference) for (const v of column) if (v > vmax) vmax = v;
+
+  drawArtery(el("artery"), result.walls, vmax, THRESHOLD);
+  drawField(el("m-surrogate"), surrogate, (v) => ramp(VIRIDIS, v / vmax));
+  drawField(el("m-reference"), reference, (v) => ramp(VIRIDIS, v / vmax));
+  drawField(el("m-error"),
+    surrogate.map((column, a) =>
+      column.map((v, t) => (v - reference[a][t]) / Math.max(reference[a][t], 1e-9))),
+    (d) => ramp(DIVERGING, 0.5 + d / 0.2));
+
+  drawColourBar(el("bar"));
+  el("bar-max").textContent = vmax.toFixed(vmax < 10 ? 2 : 0) + " Pa";
+  el("t-surrogate").textContent = result.timing_ms.query.toFixed(1) + " ms";
+  el("t-reference").textContent = result.timing_ms.reduced_order_reference.toFixed(1) + " ms";
+
+  const s = result.summary;
+  const bandIsEmpty = s.low_shear_fraction === 0 && result.reference_summary.low_shear_fraction === 0;
+
+  el("r-latency").innerHTML = result.timing_ms.query.toFixed(1) + " <small>ms</small>";
+  el("r-speedup").innerHTML = formatSpeedup(result.speedup_vs_assumed_cfd) + " <small>faster</small>";
+  el("r-peak").innerHTML = formatPa(s.peak_pa);
+  el("r-low").innerHTML = (s.low_shear_fraction * 100).toFixed(1) + " <small>% of wall</small>";
+
+  /* Dice between two empty masks is 1 by convention and says nothing, so the
+     readout falls back to the metric that still means something. */
+  el("r-dice").innerHTML = bandIsEmpty
+    ? s.relative_l2_vs_reference.toFixed(3) + " <small>rel. L2</small>"
+    : s.low_shear_dice_vs_reference.toFixed(3) + " <small>Dice</small>";
+
+  const priorOff = !body.physics_prior;
+  [el("r-peak"), el("r-dice"), el("r-low")].forEach((node) => node.classList.toggle("alarm", priorOff));
+
+  if (body.physics_prior !== lastPrior) {
+    lastPrior = body.physics_prior;
+    [el("r-peak"), el("r-dice"), el("r-low")].forEach(flash);
+  }
+
+  const outside = markEnvelope();
+  if (priorOff) {
+    setBanner(
+      "<strong>Physics prior off.</strong> Same network, same features, same training budget — "
+      + "now asked to emit pascals directly from dimensionless inputs. Relative L2 against the "
+      + "reference is " + s.relative_l2_vs_reference.toFixed(3) + ".", "risk");
+  } else if (outside > 0) {
+    setBanner(
+      "<strong>Outside the training distribution.</strong> "
+      + outside + (outside === 1 ? " control is" : " controls are")
+      + " past the range this checkpoint learned from, marked in green on the tracks. "
+      + "Absolute scale still comes from the analytic solution, so it stays right; the learned "
+      + "correction is extrapolating, and the error here is not covered by the held-out score.");
+  } else {
+    setBanner("");
+  }
+}
+
+function formatPa(v) {
+  if (v >= 1000) return (v / 1000).toFixed(1) + " <small>kPa</small>";
+  return v.toFixed(2) + " <small>Pa</small>";
+}
+
+function formatSpeedup(value) {
+  if (value >= 1e6) return (value / 1e6).toFixed(1) + "× 10⁶";
+  if (value >= 1e3) return Math.round(value / 1e3) + "× 10³";
+  return Math.round(value) + "×";
+}
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+
+async function boot() {
+  buildPresets();
+  el("dia").value = DIA.toSlider(4.6);
+  el("flo").value = FLO.toSlider(2.8);
+
+  ["sev", "pos", "wid", "dia", "cur", "flo"].forEach((id) => {
+    el(id).addEventListener("input", () => {
+      paintLabels();
+      document.querySelectorAll("button.preset").forEach((b) =>
+        b.setAttribute("aria-pressed", "false"));
+      request();
+    });
+  });
+
+  el("prior").addEventListener("click", () => {
+    const on = el("prior").getAttribute("aria-pressed") === "true";
+    el("prior").setAttribute("aria-pressed", String(!on));
+    request();
+  });
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { paintEnvelope(); request(); }, 120);
+  });
+
+  let status;
+  try {
+    status = await fetch("demo/status").then((r) => r.json());
+  } catch (err) {
+    el("ident").textContent = "service unreachable";
+    setBanner("Cannot reach the service. Is <strong>make demo</strong> still running?", "risk");
+    return;
+  }
+
+  if (!status.ready) {
+    el("ident").textContent = "no checkpoint";
+    setBanner(status.detail, "risk");
+    paintLabels();
+    return;
+  }
+
+  THRESHOLD = status.low_shear_threshold_pa;
+  ENVELOPE = status.training_envelope;
+  el("thr").textContent = String(THRESHOLD);
+
+  const m = status.model;
+  const test = status.test_metrics || {};
+  el("ident").innerHTML =
+    `<b>${m.name}</b> &middot; ${m.n_parameters.toLocaleString()} parameters &middot; `
+    + `${m.grid[0]}×${m.grid[1]} grid<br>run ${m.run_id}`
+    + (test.relative_l2 !== undefined
+        ? ` &middot; held-out rel. L2 <b>${test.relative_l2.toFixed(4)}</b>` : "");
+
+  const scores = status.test_metrics;
+  if (scores) {
+    const rows = [
+      ["Relative L2", scores.relative_l2, (v) => v.toFixed(4)],
+      ["Median relative error", scores.median_relative_error, (v) => (v * 100).toFixed(1) + "%"],
+      ["Low-shear band error", scores.low_shear_median_relative_error, (v) => (v * 100).toFixed(1) + "%"],
+      ["Low-shear Dice", scores.low_shear_dice, (v) => v.toFixed(3)],
+    ];
+    const list = el("score-list");
+    for (const [label, value, format] of rows) {
+      if (value === undefined || value === null) continue;
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = format(value);
+      list.append(dt, dd);
+    }
+    if (list.childElementCount) el("scorecard").hidden = false;
+  }
+
+  if (!status.ablation_available) {
+    el("prior").disabled = true;
+    el("prior-note").textContent =
+      "Ablation checkpoint not trained. Run `make ablation` to enable this switch.";
+  }
+
+  paintEnvelope();
+  paintLabels();
+  request();
+}
+
+boot();
+</script>
+</body>
+</html>

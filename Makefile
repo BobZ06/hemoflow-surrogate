@@ -1,4 +1,4 @@
-.PHONY: help install lint fmt test data train eval bench serve smoke clean
+.PHONY: help install lint fmt test data train eval bench serve demo ablation smoke clean
 
 PY ?= python
 CONFIG ?= configs/mlp.yaml
@@ -32,8 +32,15 @@ eval:  ## Evaluate the latest checkpoint on the held-out test split
 bench:  ## Benchmark inference latency against the CFD reference cost
 	$(PY) -m hemoflow.cli bench --config $(CONFIG)
 
+ablation:  ## Train the no-physics-prior checkpoint the demo switch needs
+	$(PY) -m hemoflow.cli train --config configs/mlp_no_physics.yaml
+
 serve:  ## Launch the inference API on :8000
 	uvicorn hemoflow.serving.api:app --host 0.0.0.0 --port 8000
+
+demo:  ## Serve the interactive demo at http://127.0.0.1:8000/
+	@echo "demo at http://127.0.0.1:8000/  (ctrl-c to stop)"
+	$(PY) -m uvicorn hemoflow.serving.api:app --host 127.0.0.1 --port 8000
 
 smoke:  ## Tiny end-to-end run: data -> train -> eval -> bench
 	bash scripts/smoke.sh
