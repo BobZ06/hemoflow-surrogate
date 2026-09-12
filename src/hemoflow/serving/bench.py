@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 
 from ..config import Config
-from ..geometry import extract_features
+from ..geometry import extract_features, sample_vessel
 from ..models.base import Surrogate, VesselContext
 from ..utils import write_json
 
@@ -85,12 +85,17 @@ def measure_latency(
     }
 
 
-def measure_feature_cost(cfg: Config, vessel: Any, repeats: int = 20) -> float:
+def measure_feature_cost(cfg: Config, repeats: int = 20) -> float:
     """Time feature extraction alone, in milliseconds.
 
-    Reported because in a deployed system this is part of query latency, and on
-    the smaller models it is the larger half of it.
+    Reported because in a deployed system this is part of query latency, and for
+    the smaller models it is the larger half of it. A latency claim that times
+    only the forward pass is measuring the wrong thing.
     """
+    rng = np.random.default_rng(0)
+    vessel = sample_vessel(rng, cfg.geometry, cfg.fluid, "bench")
+
+    extract_features(vessel, cfg.fluid)  # warm up
     samples = []
     for _ in range(repeats):
         start = time.perf_counter()
@@ -145,6 +150,7 @@ def run_benchmark(
         "cfd_reference_seconds": cfd_reference_seconds,
         "cfd_reference_is_an_assumption": True,
         "grid": [cfg.geometry.n_arc, cfg.geometry.n_theta],
+        "feature_extraction_ms": measure_feature_cost(cfg),
         "rows": rows,
     }
     write_json(Path(cfg.paths.reports) / "latency.json", payload)

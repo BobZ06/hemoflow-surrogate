@@ -20,6 +20,7 @@ import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from ..config import PathConfig
 from ..geometry import extract_features, reference_wss, vessel_from_profile
 from ..models.base import VesselContext
 from ..training.metrics import LOW_SHEAR_THRESHOLD_PA
@@ -87,7 +88,7 @@ def _resolve_run_dir() -> Path:
     explicit = os.environ.get(RUN_DIR_ENV)
     if explicit:
         return Path(explicit)
-    runs = Path("artifacts/runs")
+    runs = Path(PathConfig().runs)
     candidates = [p for p in runs.glob("*") if (p / "weights.pt").exists()] if runs.exists() else []
     if not candidates:
         raise FileNotFoundError(

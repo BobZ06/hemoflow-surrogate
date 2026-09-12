@@ -12,6 +12,7 @@ quiet way to make a neural model look better than it is.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,8 @@ from ..models.base import Surrogate, VesselContext
 from ..models.baselines import ConstantBaseline, PoiseuilleBaseline, RidgeBaseline
 from ..utils import write_json
 from .metrics import compute_metrics, format_table
+
+logger = logging.getLogger(__name__)
 
 REPORT_COLUMNS = [
     "model",
@@ -94,11 +97,29 @@ def benchmark(cfg: Config, run_dirs: list[str | Path] | None = None, split: str 
 
     models: list[Surrogate] = build_baselines(train_features, train_targets)
 
+    skipped: list[str] = []
     for run_dir in run_dirs or []:
         from ..models.registry import load_surrogate
 
         surrogate, run_cfg = load_surrogate(run_dir)
-        surrogate.name = f"{run_cfg.model.name} ({Path(run_dir).name})"
+
+        # A run trained on a different dataset cannot share a row with these
+        # baselines: same column headings, different held-out vessels. Comparing
+        # them anyway is the kind of table that looks fine and means nothing.
+        if run_cfg.dataset_id != cfg.dataset_id:
+            logger.warning(
+                "skipping %s: trained on dataset %s, evaluating on %s",
+                Path(run_dir).name,
+                run_cfg.dataset_id,
+                cfg.dataset_id,
+            )
+            skipped.append(Path(run_dir).name)
+            continue
+
+        label = f"{run_cfg.model.name}"
+        if not run_cfg.model.physics_residual:
+            label += " (no physics prior)"
+        surrogate.name = label
         models.append(surrogate)
 
     rows = evaluate_models(cfg, models, split=split)
@@ -118,5 +139,10 @@ def benchmark(cfg: Config, run_dirs: list[str | Path] | None = None, split: str 
         f"{table}\n\n"
         "`relative_l2` is the primary metric. `low_shear_*` columns are restricted to "
         "nodes below 1 Pa, the atheroprone band.\n"
+        + (
+            f"\nSkipped (trained on a different dataset): {', '.join(skipped)}\n"
+            if skipped
+            else ""
+        )
     )
     return report_path
