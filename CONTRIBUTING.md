@@ -48,6 +48,11 @@ boundary, ask rather than reaching over.
 | **A - data & physics** | geometry, the reference solver, dataset generation, features | `geometry/`, `data/` |
 | **B - models & serving** | architectures, training loop, metrics, API, demo | `models/`, `training/`, `serving/` |
 
+The demo is lane B's, and it is deliberately a separate module: `serving/demo.py`
+plus `serving/static/demo.html` can be deleted without touching the service
+contract in `serving/api.py`. Anything the page needs that the service does not
+belongs in the demo module, not in `/predict`.
+
 Shared, change by agreement: `config.py`, `cli.py`, `utils.py`.
 
 The contract between the lanes is small and should stay that way:

@@ -48,6 +48,30 @@ hemoflow bench --config configs/mlp.yaml     # inference latency
 make serve                                    # FastAPI on :8000, docs at /docs
 ```
 
+## The demo
+
+```bash
+make train && make ablation && make demo      # http://127.0.0.1:8000/
+```
+
+Drag the stenosis slider and the wall-shear-stress field is re-solved between
+frames. The atheroprone band below 1 Pa is marked on the vessel wall, the
+unwrapped field sits beside the reference solver's answer on a shared colour
+scale, and a switch turns the physics prior off so the ablation below stops
+being a table row and starts being something you watch break. It runs on
+localhost with no network access at all, which a test enforces.
+
+![The demo: a straightened vessel section coloured by wall shear stress, the unwrapped field beside the reference solver, and the query-time readout](docs/images/demo.png)
+
+The green segment on each slider track is the range this checkpoint was actually
+trained on, read out of the config rather than written down. Drag past it and the
+page says so. That is not uncertainty quantification - the roadmap is honest that
+the model has none - but a demo that cannot say when it has left its training
+distribution has no business being convincing.
+
+[`docs/DEMO.md`](docs/DEMO.md) describes what is on screen and what it does not
+claim.
+
 <!-- RESULTS:START -->
 ## Results
 
@@ -180,9 +204,9 @@ src/hemoflow/
   data/              generation, leakage-safe splits, normalisation, loaders
   models/            interface, baselines, physics prior, networks, checkpoints
   training/          training loop, benchmark harness, metrics
-  serving/           FastAPI service, latency benchmark
+  serving/           FastAPI service, interactive demo, latency benchmark
 configs/             one file per experiment
-tests/               71 tests; properties, not smoke
+tests/               80 tests; properties, not smoke
 scripts/             setup, end-to-end smoke, figures
 docs/                architecture, roadmap
 ```
