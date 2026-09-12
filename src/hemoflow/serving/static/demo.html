@@ -299,7 +299,7 @@
 
   .scale { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
   .scale canvas { height: 9px; flex: 1; }
-  .scale span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .scale span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; flex: none; }
 
   .risk-key { display: inline-flex; align-items: center; gap: 6px; }
   .risk-key i { width: 16px; height: 3px; background: var(--risk); border-radius: 2px; display: inline-block; }
@@ -804,7 +804,7 @@ function drawArtery(canvas, walls, vmax, threshold) {
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#66748a";
   ctx.fillText("flow →", 8, 14);
-  ctx.fillText("outer wall of the bend", 8, 30);
+  ctx.fillText("outer wall of the bend on top", 8, h - 13);
   ctx.textAlign = "right";
   ctx.fillText("straightened along the centerline · radius ×" + k.toFixed(1), w - 8, h - 13);
   ctx.textAlign = "left";
