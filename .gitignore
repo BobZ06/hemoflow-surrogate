@@ -8,10 +8,12 @@ dist/
 venv/
 .env
 
-# Experiment artifacts - never commit these, they are reproducible from configs
-artifacts/
-data/
-runs/
+# Experiment artifacts - never commit these, they are reproducible from configs.
+# Anchored with a leading slash: an unanchored `data/` also matches
+# src/hemoflow/data/, which would silently drop a source package from the repo.
+/artifacts/
+/data/
+/runs/
 *.pt
 *.ckpt
 *.npz
