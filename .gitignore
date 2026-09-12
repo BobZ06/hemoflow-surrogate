@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Experiment artifacts - never commit these, they are reproducible from configs
+artifacts/
+data/
+runs/
+*.pt
+*.ckpt
+*.npz
+!tests/fixtures/*.npz
+
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+.DS_Store
