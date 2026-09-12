@@ -11,9 +11,21 @@
 #     bash scripts/seed_ownership_issues.sh <owner>/<repo> <bowen-user> <letian-user>
 set -euo pipefail
 
+# No apostrophes inside a ${var:?message} (or :-, :=, :+) message, ever.
+# Bash's brace-parser scans that message for a closing quote independently
+# of the surrounding double quotes, so a single apostrophe inside it opens
+# an unterminated literal quote: with one such message elsewhere in the
+# script, the two apostrophes pair up and everything between them - here,
+# the entire next assignment line - gets silently swallowed into that
+# quoted region instead of running. The only symptom is the swallowed
+# variable reporting "unbound variable" wherever it's later used, with no
+# syntax error anywhere near the real cause. (Two messages below used to
+# read "Bowen's github username" / "Letian's github username" - that
+# apostrophe pair was exactly this bug, and it silently ate the LETIAN
+# assignment line.)
 REPO="${1:?usage: seed_ownership_issues.sh <owner>/<repo> <bowen-user> <letian-user>}"
-BOWEN="${2:?Bowen's github username}"
-LETIAN="${3:?Letian's github username}"
+BOWEN="${2:?GitHub username for Bowen}"
+LETIAN="${3:?GitHub username for Letian}"
 
 command -v gh >/dev/null || { echo "gh CLI not found: https://cli.github.com" >&2; exit 1; }
 
@@ -34,7 +46,24 @@ STANDARD="**Primary owner** means: you can run this, modify it, and explain *why
 "
 
 issue() {
-  local title="$1" primary="$2" owner_label="$3" body="$4"
+  # Same reasoning as above: four separate assignments, not one `local` line.
+  local title
+  local primary
+  local owner_label
+  local body
+  title="$1"
+  primary="$2"
+  owner_label="$3"
+  body="$4"
+
+  # Idempotent: safe to re-run after a partial failure. gh has no
+  # "get by title" lookup, so this greps a plain title listing instead.
+  if gh issue list --repo "$REPO" --state all --search "in:title \"$title\"" \
+       --json title -q '.[].title' 2>/dev/null | grep -qxF "$title"; then
+    echo "skip (already exists): $title"
+    return 0
+  fi
+
   gh issue create --repo "$REPO" --title "$title" --assignee "$primary" \
     --label "verify,$owner_label" --body "$STANDARD$body"
 }
