@@ -68,8 +68,9 @@ class DemoRequest(BaseModel):
     )
     # The lower bound reaches capillary calibre deliberately. Nothing near it
     # appears in training, and that is the point: the physics prior is what
-    # keeps absolute scale correct four decades away from the training band, so
-    # the demo has to be able to go there.
+    # keeps the scale tracking 1/r^3 that far from the training band, so the
+    # demo has to be able to go there. The prediction is not accurate out
+    # there - only the scale relationship survives.
     inlet_diameter_mm: float = Field(4.6, gt=0.001, le=30.0, description="Healthy lumen diameter.")
     length_mm: float = Field(60.0, gt=5.0, le=300.0, description="Centerline arc length.")
     curvature_per_m: float = Field(8.0, ge=0.0, le=40.0, description="Constant centerline bend.")

@@ -62,11 +62,15 @@ the same training budget has to emit pascals directly from dimensionless inputs.
 The banner reports relative L2 against the reference, which moves by roughly an
 order of magnitude. This is the ablation from the README, made watchable.
 
-**Capillary calibre.** The preset takes the vessel to 8 microns - four decades
-below anything in training. With the prior on, absolute scale stays exact,
-because it comes from the analytic solution rather than from the network. With
-it off, the network returns something close to its training calibre no matter
-what it is shown. `test_demo.py::test_physics_prior_carries_absolute_scale_across_calibres`
+**Arteriole.** The preset takes the vessel to 0.4 mm, against a training band
+centred on 5 mm - roughly one order of magnitude below anything the model was
+fitted on. With the prior on, the scale still tracks `1/r^3`, because it comes
+from the analytic solution rather than from the network: the prediction peaks at
+about 152 Pa against the reference's 129 Pa, a relative L2 of 0.16 - an order of
+magnitude worse than the 0.017 it manages in distribution, but the right
+physics. With the prior off the same network returns 0.85 Pa, a relative L2 of
+0.99, and marks the whole wall atheroprone. The slider reaches true capillary
+calibre if you drag it there; the preset does not. `test_demo.py::test_physics_prior_carries_absolute_scale_across_calibres`
 pins the `1/r^3` mechanism over one octave, 4 mm against 2 mm; the four-decade
 behaviour is what the preset demonstrates, not something a test asserts.
 
