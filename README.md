@@ -64,7 +64,7 @@ prior off so the ablation below stops being a table row and starts being
 something you watch break. It runs on
 localhost with no network access at all, which a test enforces.
 
-![The demo: a straightened vessel section coloured by wall shear stress, the unwrapped field beside the reference solver, and the query-time readout](docs/images/demo.png)
+![The demo: a translucent vessel carrying red blood cells that accelerate through the stenosis, its lumen boundary coloured by wall shear stress, with the unwrapped field beside the reference solver and a signed relative-error map, above the query-time readout](docs/images/demo.png)
 
 The green segment on each slider track is the range this checkpoint was actually
 trained on, read out of the config rather than written down. Drag past it and the

@@ -565,8 +565,9 @@ const VIRIDIS = [
   [31, 158, 137], [53, 183, 121], [109, 205, 89], [180, 222, 44], [253, 231, 37],
 ];
 
-/* The difference map is diverging and near-invisible at zero, so structure in
-   the residual is what catches the eye rather than its mere existence. */
+/* The relative-error map diverges through white at zero, so agreement reads as
+   blank and only real structure in the residual carries colour. Blue is an
+   underestimate of the reference, orange an overestimate. */
 const DIVERGING = [
   [33, 102, 172], [146, 197, 222], [247, 247, 245],
   [244, 165, 130], [184, 68, 21],
