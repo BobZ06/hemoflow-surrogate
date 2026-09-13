@@ -278,11 +278,7 @@ is the gap that matters most before anything like this goes near a decision.
 [`docs/ROADMAP.md`](docs/ROADMAP.md) has the ordered plan, including what was
 deliberately left out and why.
 
-## Who built what
-
-Two people, one weekend. The split below is the module ownership we worked to,
-and each of us is responsible for being able to run, modify and explain
-everything under our own name.
+## Contributions
 
 **Bowen Zhao** - geometry, data, physics, evaluation.
 `geometry/` (vessel representation, parallel-transport frames, the twelve
