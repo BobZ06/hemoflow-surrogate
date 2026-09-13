@@ -61,10 +61,10 @@
 
   header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 18px;
     flex-wrap: wrap;
-    padding: 14px 2px 11px;
+    padding: 18px 2px 17px;
     border-bottom: 1px solid var(--line);
   }
 
@@ -318,8 +318,10 @@
   .error-legend { margin-top: 8px; }
   .error-ramp { height: 9px; border-radius: 2px; background: linear-gradient(to right, #2166ac, #92c5de, #f7f7f5, #f4a582, #b84415); }
   .error-labels { display: flex; justify-content: space-between; gap: 8px; font: 10px var(--mono); color: var(--ink-2); margin-top: 4px; }
-  .error-info { color: var(--ink-2); font-size: 11px; line-height: 1.45; margin: 5px 0 0; }
-  .error-point { min-height: 2.4em; font: 11px/1.45 var(--mono); color: var(--ink); margin: 5px 0 0; }
+  .error-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+    margin-top: 8px; font: 11px var(--mono); color: var(--ink-3); }
+  .error-foot #error-stats { color: var(--ink-2); }
+  .error-foot #error-point { color: var(--ink); margin-left: auto; }
   #m-error { cursor: crosshair; }
   #error-range { color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-bright); font: 11px var(--mono); border-radius: 3px; }
   .risk-key { display: inline-flex; align-items: center; gap: 6px; }
@@ -514,15 +516,17 @@
               <div class="error-ramp"></div>
               <div class="error-labels"><span id="error-min">−10% · under</span><span>0 · agreement</span><span id="error-max">+10% · over</span></div>
             </div>
-            <p class="error-info">(surrogate − reference) / reference · white ≈ agreement</p>
-            <p class="error-info" id="error-stats"></p>
-            <p class="error-point" id="error-point">Point at the map to inspect a node.</p>
           </div>
         </div>
         <div class="scale">
           <span>WSS · 0&nbsp;Pa</span>
           <canvas id="bar" height="9"></canvas>
           <span id="bar-max"></span>
+        </div>
+        <div class="error-foot">
+          <span>relative error · (surrogate &minus; reference) / reference</span>
+          <span id="error-stats"></span>
+          <span id="error-point">point at the map to inspect a node</span>
         </div>
       </section>
 
@@ -1207,7 +1211,7 @@ function drawErrorMap(result) {
   el("error-min").textContent = `−${limit}% · under`;
   el("error-max").textContent = `+${limit}% · over`;
   el("error-stats").textContent = `median ${median.toFixed(1)}% · max ${magnitudes.at(-1).toFixed(1)}% · ${clipped.toFixed(1)}% saturated`;
-  el("error-point").textContent = "Point at the map to inspect a node.";
+  el("error-point").textContent = "point at the map to inspect a node";
 }
 
 function inspectError(event) {
