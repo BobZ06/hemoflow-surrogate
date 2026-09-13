@@ -61,14 +61,14 @@
 
   header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 18px;
     flex-wrap: wrap;
-    padding: 14px 2px 11px;
+    padding: 18px 2px 17px;
     border-bottom: 1px solid var(--line);
   }
 
-  h1 { margin: 0; font-size: 19px; font-weight: 620; letter-spacing: -0.015em; }
+  h1 { margin: 0; font-size: 31px; font-weight: 660; letter-spacing: -0.025em; line-height: 1; }
 
   .strap { color: var(--ink-2); font-size: 13.5px; margin: 0; max-width: 60ch; }
 
@@ -312,14 +312,16 @@
   .map canvas { height: 118px; background: #0a0e13; }
 
   .scale { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
-  .scale canvas { height: 9px; flex: 1; }
+  .scale canvas { height: 9px; flex: 1; min-width: 0; }
   .scale span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; flex: none; }
 
   .error-legend { margin-top: 8px; }
   .error-ramp { height: 9px; border-radius: 2px; background: linear-gradient(to right, #2166ac, #92c5de, #f7f7f5, #f4a582, #b84415); }
   .error-labels { display: flex; justify-content: space-between; gap: 8px; font: 10px var(--mono); color: var(--ink-2); margin-top: 4px; }
-  .error-info { color: var(--ink-2); font-size: 11px; line-height: 1.6; margin: 7px 0 0; }
-  .error-point { min-height: 3.2em; font: 11px/1.6 var(--mono); color: var(--ink); margin: 7px 0 0; }
+  .error-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+    margin-top: 8px; font: 11px var(--mono); color: var(--ink-3); }
+  .error-foot #error-stats { color: var(--ink-2); }
+  .error-foot #error-point { color: var(--ink); margin-left: auto; }
   #m-error { cursor: crosshair; }
   #error-range { color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-bright); font: 11px var(--mono); border-radius: 3px; }
   .risk-key { display: inline-flex; align-items: center; gap: 6px; }
@@ -387,10 +389,7 @@
 
   <header>
     <h1>hemoflow</h1>
-    <p class="strap">
-      Wall shear stress across a stenosed artery, solved while you drag.
-      The same field a 3D CFD run computes overnight.
-    </p>
+    <p class="strap">Wall shear stress across a stenosed artery, solved while you drag.</p>
     <div class="ident" id="ident">connecting&hellip;</div>
   </header>
 
@@ -517,15 +516,17 @@
               <div class="error-ramp"></div>
               <div class="error-labels"><span id="error-min">−10% · under</span><span>0 · agreement</span><span id="error-max">+10% · over</span></div>
             </div>
-            <p class="error-info">(Surrogate − reference) / reference × 100. White means near zero.</p>
-            <p class="error-info" id="error-stats"></p>
-            <p class="error-point" id="error-point">Point or tap on the map to inspect WSS and error.</p>
           </div>
         </div>
         <div class="scale">
-          <span>WSS · first two maps · 0&nbsp;Pa</span>
+          <span>WSS · 0&nbsp;Pa</span>
           <canvas id="bar" height="9"></canvas>
           <span id="bar-max"></span>
+        </div>
+        <div class="error-foot">
+          <span>relative error · (surrogate &minus; reference) / reference</span>
+          <span id="error-stats"></span>
+          <span id="error-point">point at the map to inspect a node</span>
         </div>
       </section>
 
@@ -1209,8 +1210,8 @@ function drawErrorMap(result) {
   const clipped = magnitudes.filter(v => v > limit).length / magnitudes.length * 100;
   el("error-min").textContent = `−${limit}% · under`;
   el("error-max").textContent = `+${limit}% · over`;
-  el("error-stats").textContent = `Median |error| ${median.toFixed(1)}% · max ${magnitudes.at(-1).toFixed(1)}% · ${clipped.toFixed(1)}% of nodes beyond colour range (saturated).`;
-  el("error-point").textContent = "Point or tap on the map to inspect WSS and error.";
+  el("error-stats").textContent = `median ${median.toFixed(1)}% · max ${magnitudes.at(-1).toFixed(1)}% · ${clipped.toFixed(1)}% saturated`;
+  el("error-point").textContent = "point at the map to inspect a node";
 }
 
 function inspectError(event) {
@@ -1222,7 +1223,7 @@ function inspectError(event) {
   const t = Math.max(0, Math.min(nt-1, Math.floor((event.clientY-rect.top)/rect.height*nt)));
   const ref = fields.reference[a][t], pred = fields.surrogate[a][t];
   const error = 100 * (pred-ref) / Math.max(ref, 1e-9);
-  el("error-point").textContent = `Along ${(a/(na-1)*100).toFixed(0)}% · θ ${(t/nt*360).toFixed(0)}° | predicted ${pred.toFixed(3)} Pa · reference ${ref.toFixed(3)} Pa | ${error >= 0 ? "+" : ""}${error.toFixed(2)}%`;
+  el("error-point").textContent = `${(a/(na-1)*100).toFixed(0)}% along · θ ${(t/nt*360).toFixed(0)}° · ${pred.toFixed(3)} vs ${ref.toFixed(3)} Pa · ${error >= 0 ? "+" : ""}${error.toFixed(2)}%`;
 }
 
 function formatPa(v) {
