@@ -21,11 +21,34 @@ vermilion rule marks wall below 1 Pa - the atheroprone band, where low shear is
 associated with plaque development. It is the only saturated colour on the page
 that is not data, so red always means the same thing.
 
+**Blood-flow animation.** Shaded red blood cells and faint streamlines occupy the lumen while
+wall colours continue to represent WSS. Cells are enlarged illustrative biconcave
+discs with subtle tumbling, rendered from cached Canvas sprites. Their size and
+count do not represent a measured cell size or concentration. Particle transport uses cumulative
+cross-sectional volume and the request flow rate, with a parabolic radial speed
+profile: particles move faster through narrowing and more slowly near the wall.
+The inlet and throat readouts show section-mean speed from `Q / (pi r^2)` in m/s,
+and their ratio. This is an illustrative steady-flow approximation, not a
+velocity field predicted by the surrogate or a CFD particle simulation; it does
+not reproduce recirculation or pulsatility.
+
+Pause/play and a 0.25–2× playback slider affect only the animation. At default
+playback, physical time is slowed to 0.08×, with an additional bound for extreme
+inputs; the actual factor is shown below the view. Reduced-motion preferences
+start the animation paused, and hidden tabs stop requesting frames. Animation
+uses its own canvas and never triggers model requests. Resizing redraws the
+last successful result locally.
+
 **Unwrapped lumen surface.** The `(arc x circumference)` grid the model actually
 predicts on, for the surrogate and for the reference solver, on one shared
 colour scale so a difference between the panels is a difference in the field and
 not in how each was normalised. The third panel is the signed relative
-difference on a diverging scale at +/-40%.
+relative error, `(surrogate - reference) / reference`, with a separate blue–white–orange
+percentage legend (blue underestimates, orange overestimates). The default fixed
+range is +/-10%, selectable from +/-2% to +/-100%. Values beyond the selected
+range saturate; their fraction and median/max absolute relative errors are shown.
+The error map uses unsmoothed grid cells and supports pointing/tapping for local
+WSS values and signed error. The Pa legend applies only to the two WSS maps.
 
 **Readouts.** Query time is feature extraction plus the forward pass, which is
 what a caller actually pays; the speedup is quoted against the same assumed
@@ -54,3 +77,11 @@ fidelity to that reference. The response field is named
 `reduced_order_reference` rather than anything involving the letters CFD for
 exactly that reason, and `docs/ARCHITECTURE.md` describes the one-function swap
 that replaces it.
+
+The vessel view projects circular cross-sections into elliptical open ends.
+Rear and translucent front surfaces use cylindrical lighting, with a curved
+specular highlight following the narrowing. Cells render between these surfaces;
+WSS boundaries and low-shear markers render last to preserve their visibility.
+Surface layers are cached when geometry changes rather than rebuilt each frame.
+This is a fixed-view illustrative projection, not a patient-specific tissue mesh
+or a new velocity simulation. The vessel remains straightened along its centerline.
