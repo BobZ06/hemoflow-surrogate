@@ -25,7 +25,3 @@ venv/
 htmlcov/
 .ipynb_checkpoints/
 .DS_Store
-
-# Anything dropped into this folder from a chat client - never belongs in the repo.
-Claude outputs/
-*.claude-download
