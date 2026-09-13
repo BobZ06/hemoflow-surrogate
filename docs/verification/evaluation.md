@@ -70,20 +70,30 @@ Three things this table says:
        4   32   0.0412    41.1%   0.1219      7.87
        5   61   0.0404    58.6%   0.0449     21.78
 
-Severity is not what drives the error. The correlation between stenosis
-fraction and per-vessel relative L2 is only +0.248, and vessels at 52.9% and
-46.1% narrowing sit in the best five - inside the range spanned by the worst
-five (41-59%). Peak shear separates them far more cleanly: the worst five peak
-at 12.6-24.6 Pa, the best five at 3.6-8.1 Pa. The error tracks the dynamic
-range within a vessel rather than the depth of the throat, which is consistent
-with where the reference solver works hardest - the separation and convective
-corrections around a high-shear throat.
+**No measured geometric factor explains the ranking.** Correlating each
+candidate against per-vessel relative L2 across all 77 test vessels:
 
-Vessel 32 is the exception worth naming: rank 4 by error, but the lowest peak
-of that group at 7.87 Pa and roughly 2.4x the curvature of its neighbours. That
-is a second failure mode, driven by the Dean-flow term rather than the throat.
+| factor | correlation with rel-L2 |
+| --- | ---: |
+| stenosis fraction | +0.248 |
+| peak wall shear (Pa) | +0.286 |
+| max `curvature x radius` | +0.097 |
 
-The honest framing, whatever the detail turns out to be: the worst vessel is
+All three are weak. Severity is the intuitive explanation and it does not hold:
+vessels at 52.9% and 46.1% narrowing sit in the *best* five, inside the range
+spanned by the worst five (41-59%). Peak shear looks cleaner when only the two
+tails are compared - the worst five peak at 7.9-24.6 Pa against 3.6-8.1 Pa for
+the best five - but across the full sample it explains barely more than severity
+does. Comparing the extremes of a ranking flatters any hypothesis; the
+correlation over all 77 is the number that matters, and it is +0.286.
+
+An earlier draft of this note claimed the error was driven by dynamic range, and
+named one vessel as a separate curvature-driven failure mode. Neither survives
+the full-sample check, and both are withdrawn. What can be said is narrower and
+more interesting: **error is close to uniform across the test set, with no
+identifiable geometric failure mode.**
+
+The honest framing: the worst vessel is
 only 1.86x the median, so there is **no catastrophic failure mode on this
 dataset** - and that is a weaker result than it sounds. The vessels are
 synthetic, they occupy a single calibre band, and the targets come from a

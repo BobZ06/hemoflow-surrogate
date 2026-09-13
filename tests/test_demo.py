@@ -142,14 +142,14 @@ def test_speedup_is_consistent_with_the_timing_it_quotes(client):
     assert payload["speedup_vs_assumed_cfd"] == pytest.approx(expected, rel=0.01)
 
 
-def test_physics_prior_keeps_absolute_scale_four_decades_out(client):
-    """The demo's central technical claim.
+def test_physics_prior_carries_absolute_scale_across_calibres(client):
+    """The demo's central technical claim, at the scale this test actually probes.
 
-    Wall shear stress scales as `1/r^3` at fixed flow. Nothing near capillary
-    calibre appears in training, so a network emitting pascals directly can only
-    return its training calibre - which is exactly what the ablation does, and
-    exactly what the prior prevents. Halving the diameter at fixed flow must
-    raise peak shear about eightfold.
+    Wall shear stress scales as `1/r^3` at fixed flow, so halving the diameter
+    must raise peak shear about eightfold. That is what is asserted below, over
+    4 mm against 2 mm - one octave, not the four decades the demo's capillary
+    preset reaches. The preset goes further because the prior supplies scale
+    analytically at any calibre; this test pins the mechanism, not that range.
     """
     large = _post(client, inlet_diameter_mm=4.0, flow_ml_s=4.0, stenosis_pct=0.0)
     small = _post(client, inlet_diameter_mm=2.0, flow_ml_s=4.0, stenosis_pct=0.0)
