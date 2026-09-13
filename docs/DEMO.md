@@ -43,8 +43,9 @@ order of magnitude. This is the ablation from the README, made watchable.
 below anything in training. With the prior on, absolute scale stays exact,
 because it comes from the analytic solution rather than from the network. With
 it off, the network returns something close to its training calibre no matter
-what it is shown. `test_demo.py::test_physics_prior_keeps_absolute_scale_four_decades_out`
-pins both halves of that.
+what it is shown. `test_demo.py::test_physics_prior_carries_absolute_scale_across_calibres`
+pins the `1/r^3` mechanism over one octave, 4 mm against 2 mm; the four-decade
+behaviour is what the preset demonstrates, not something a test asserts.
 
 ## What the demo does not claim
 

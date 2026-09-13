@@ -2,7 +2,7 @@
 # Create the backlog on GitHub, labelled and assigned by lane.
 #
 # The issues below are the roadmap in `docs/ROADMAP.md`, one issue per item,
-# split along the same boundary `CONTRIBUTING.md` draws so that two people can
+# split along the same module boundary the README's credits draw, so two people can
 # pick up work without reading each other's diffs. Run once, after the repo
 # exists and both collaborators are added:
 #

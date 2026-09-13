@@ -98,13 +98,19 @@ the zero-parameter analytic baseline it was supposed to improve on. This is the
 ablation that justifies the design, and it is why `models/physics.py` is the
 longest docstring in the repo.
 
-**The U-Net is not worth its 14x parameter count.** 0.0306 against 0.0310 is
-noise. The honest reading is that the features already encode the upstream
-history a convolution would otherwise have to discover - `throat_ratio` and
-`downstream_of_throat` carry exactly the non-local information the
-post-stenotic recirculation zone depends on. Spatial context is not free
-information here; it was already in the input. That is a negative result and it
-stays in the table.
+**The U-Net does not earn its 14x parameter count.** 0.0306 against 0.0310, one
+seed each, with the MLP ahead on low-shear Dice and peak error. The honest
+reading is that the two are *indistinguishable on this dataset* - not that either
+is better. Separating them would need repeated seeds and confidence intervals,
+which we have not run.
+
+The likely explanation, which we have **not** measured, is that the features
+already encode the upstream history a convolution would otherwise have to
+discover: `throat_ratio` and `downstream_of_throat` carry the non-local
+information the post-stenotic recirculation zone depends on. Testing that needs
+the feature ablation in [`docs/ROADMAP.md`](docs/ROADMAP.md). Until it is run it
+is a hypothesis, not a finding. The negative result stays in the table either
+way.
 
 **Both networks are essentially at the noise floor.** 1.8-1.9% median relative
 error against an irreducible 1.35% means roughly 1.4x the floor. There is very
@@ -129,15 +135,23 @@ Bottom row is the ablation: right shape, wrong scale, systematically.
 | MLP | 5.2 ms | 6.0 ms | 59 vessel/s |
 | U-Net | 9.7 ms | 11.9 ms | 67 vessel/s |
 
-Single-vessel, end to end, including the 0.6 ms of feature extraction - which is
-a real part of query cost and is reported rather than quietly excluded. Batch
-throughput is listed separately because it answers a different question (offline
-cohort processing) and quoting it as interactive latency is how these claims get
-inflated.
+The p50 and p95 columns time `Surrogate.predict_pa` alone. Feature extraction is
+measured separately at **0.6 ms** (`bench.py::measure_feature_cost`) and reported
+alongside, so a full single-vessel query costs their sum - about 5.8 ms for the
+MLP. Batch throughput answers a different question (offline cohort processing);
+quoting it as interactive latency is how these claims get inflated.
 
-Against a **4-hour assumed** CFD solve, 5.2 ms is a ~2.8e6 speedup. That
-denominator is an assumption taken from typical published patient-specific runs,
-not something measured here, and `reports/latency.json` records it as such.
+Two things this table does **not** show:
+
+- **There is no measured speedup anywhere in this repository.** The reduced-order
+  reference solver runs in roughly **0.4 ms per vessel**, so the surrogate is
+  about **12x slower than the thing it imitates**. That is expected - the
+  surrogate exists to stand in for a 3D CFD solve, and the reduced-order model is
+  itself a stand-in for one - but no number here demonstrates an acceleration.
+- Against a **4-hour assumed** CFD solve, 5.8 ms would be a ~2.5e6 speedup. That
+  denominator is an assumption drawn from typical published patient-specific
+  runs, not a measurement; `reports/latency.json` records it as such. It is a
+  statement about published CFD costs, not a result of this work.
 
 Reproduce with `hemoflow eval --config configs/mlp.yaml --all-runs` and
 `hemoflow bench --config configs/mlp.yaml --all-runs`.
@@ -184,11 +198,22 @@ of stenosis-throat nodes, and a model can post an excellent MAE while being
 useless in the low-shear regions - which are the ones that matter, since
 persistently low shear is what drives plaque.
 
-So the table carries three kinds of number: scale-free accuracy (relative L2,
-median relative error), the same errors restricted to the sub-1 Pa atheroprone
-band, and Dice agreement between the predicted and reference low-shear regions -
-the closest thing here to the question actually being asked, which is *where* the
-at-risk territory is.
+So the table carries three kinds of number, and the difference between the first
+two matters more than it looks:
+
+- **Relative L2** is *scale-invariant*, which is not the same as per-node
+  scale-free. Multiply the whole field by a constant and the metric is unchanged,
+  but within one field its sum of squares is still dominated by the high-shear
+  throat nodes: a 10% error at 30 Pa contributes ten thousand times more to it
+  than a 10% error at 0.3 Pa.
+- **Median relative error** is the per-node scale-free one. It weighs a 10% miss
+  at 0.3 Pa exactly like a 10% miss at 30 Pa.
+- **The low-shear columns and Dice** restrict attention to the sub-1 Pa
+  atheroprone band - the closest thing here to the question actually being asked,
+  which is *where* the at-risk territory is.
+
+Reporting all three is the point. No single one of them would catch a model that
+is accurate at throats and useless in recirculation zones.
 
 Baselines are fitted on the training split only and scored through the same
 `Surrogate.predict_pa` interface as the networks, so the comparison is
@@ -208,16 +233,28 @@ src/hemoflow/
 configs/             one file per experiment
 tests/               80 tests; properties, not smoke
 scripts/             setup, end-to-end smoke, figures
-docs/                architecture, roadmap
+docs/                architecture, roadmap, per-module verification notes
 ```
 
 ## Reproducibility
 
-- One YAML config fully determines a run; there are no result-affecting flags.
-- Datasets and runs are content-addressed by config hash and written once, so
-  re-running an unchanged config is a no-op rather than a silent second copy.
-  `dataset_id` hashes only the geometry, fluid and data blocks, so changing a
-  learning rate does not invalidate a generated dataset.
+- One YAML config determines which experiment runs; there are no result-affecting
+  flags.
+- Datasets are content-addressed by config hash and written once, so re-running
+  `hemoflow data` on an unchanged config is a no-op. `dataset_id` hashes only the
+  geometry, fluid and data blocks, so changing a learning rate does not
+  invalidate a generated dataset.
+- **Training is not a no-op.** `hemoflow train` on an unchanged config retrains
+  and overwrites the same run directory. The directory name comes from the config;
+  the weights inside it are whatever the most recent run produced.
+- **A matching `run_id` proves the configs matched, not that the bits match.**
+  Some backward kernels on Apple Silicon are non-deterministic and say so at
+  runtime, so two runs of one config can differ numerically. Content addressing
+  buys traceability, not bitwise reproducibility.
+- **The dataset hash cannot see the solver's code.** `dataset_id` is computed from
+  config alone, so editing `geometry/reference.py` without changing a config value
+  leaves a stale cached dataset in place and nothing will warn you. Run
+  `hemoflow data --force` after any change to what generation produces.
 - Splits are over whole vessels, never surface nodes. Two nodes a millimetre
   apart on the same artery are nearly the same sample, and splitting them across
   train and test would measure memorisation.
@@ -238,12 +275,45 @@ is the gap that matters most before anything like this goes near a decision.
 [`docs/ROADMAP.md`](docs/ROADMAP.md) has the ordered plan, including what was
 deliberately left out and why.
 
-## Contributing
+## Who built what
 
-[`CONTRIBUTING.md`](CONTRIBUTING.md) covers setup, the two-lane split of
-ownership, branch conventions, and the failure modes specific to this domain
-(units, leakage, stale caches).
+Two people, one weekend. The split below is the module ownership we worked to,
+and each of us is responsible for being able to run, modify and explain
+everything under our own name.
+
+**Bowen Zhao** - geometry, data, physics, evaluation.
+`geometry/` (vessel representation, parallel-transport frames, the twelve
+features, the reduced-order reference solver); `data/` (generation, leakage-safe
+splits, normalisation); the physics-prior formulation in `models/physics.py`;
+`training/` (training loop, metrics, benchmark harness); and the failure-case
+analysis in `scripts/worst_vessel.py`. Verification:
+[#11](https://github.com/BobZ06/hemoflow-surrogate/pull/11),
+[#12](https://github.com/BobZ06/hemoflow-surrogate/pull/12),
+[#13](https://github.com/BobZ06/hemoflow-surrogate/pull/13),
+[#14](https://github.com/BobZ06/hemoflow-surrogate/pull/14),
+[#15](https://github.com/BobZ06/hemoflow-surrogate/pull/15),
+[#16](https://github.com/BobZ06/hemoflow-surrogate/pull/16).
+
+**Letian Wang** - architectures, checkpoints, serving.
+`models/nets.py` (the per-node MLP, the U-Net, `MixedPadConv2d` and
+`topology_aware_upsample`); checkpoint save, load and round-trip in
+`models/registry.py`; and `serving/` (the FastAPI service, the interactive demo
+page, input validation, offline operation). Verification:
+[#17](https://github.com/BobZ06/hemoflow-surrogate/pull/17),
+[#18](https://github.com/BobZ06/hemoflow-surrogate/pull/18),
+[#19](https://github.com/BobZ06/hemoflow-surrogate/pull/19).
+
+Shared, changed by agreement: `config.py`, `cli.py`, `utils.py`.
+
+The contract between the two halves is deliberately small: `extract_features`
+returns an `(n_arc, n_theta, N_FEATURES)` float32 tensor described by
+`FEATURE_NAMES`, and every model implements `Surrogate.predict_pa` and returns
+pascals. Changing `FEATURE_NAMES` invalidates every checkpoint, because the input
+width changes.
+
+[`docs/verification/`](docs/verification) holds one note per module: what it
+does, what each of us checked, and what has not been checked yet.
 
 ```bash
-make fmt lint test
+make fmt lint test    # CI runs these plus the end-to-end smoke; nothing merges red
 ```

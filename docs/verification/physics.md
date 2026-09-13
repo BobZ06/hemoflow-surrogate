@@ -21,7 +21,7 @@ Halve the radius to 1 mm at the same flow:
     tau = 5.6e-8 / (pi * 0.001^3) = 17.8 Pa
 
 An 8x jump for a 2x radius drop, because r enters cubed. That factor of 8 is
-what `tests/test_demo.py::test_physics_prior_keeps_absolute_scale_four_decades_out`
+what `tests/test_demo.py::test_physics_prior_carries_absolute_scale_across_calibres`
 asserts against the live endpoint.
 
 Sanity check against the generated dataset: `hemoflow data --config

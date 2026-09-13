@@ -43,7 +43,7 @@ nothing. With the prior, the same network beats that baseline by 8.7x.
 Toggling the demo's physics-prior switch changes which environment variable
 `serving/demo.py` reads - `HEMOFLOW_RUN_DIR` vs `HEMOFLOW_ABLATION_RUN_DIR` -
 which loads a different checkpoint entirely, not the same model relabelled.
-`tests/test_demo.py::test_physics_prior_keeps_absolute_scale_four_decades_out`
+`tests/test_demo.py::test_physics_prior_carries_absolute_scale_across_calibres`
 and `::test_ablation_loses_that_scale` pin both halves: halving inlet diameter
 must raise peak shear ~8x with the prior on, and must visibly fail to track that
 scaling with it off.
