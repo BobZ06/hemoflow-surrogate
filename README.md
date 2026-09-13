@@ -55,10 +55,13 @@ make train && make ablation && make demo      # http://127.0.0.1:8000/
 ```
 
 Drag the stenosis slider and the wall-shear-stress field is re-solved between
-frames. The atheroprone band below 1 Pa is marked on the vessel wall, the
-unwrapped field sits beside the reference solver's answer on a shared colour
-scale, and a switch turns the physics prior off so the ablation below stops
-being a table row and starts being something you watch break. It runs on
+frames. The vessel view is a fixed-view cylindrical projection with open
+elliptical ends, translucent front and rear surfaces, and illustrative red blood
+cells moving faster through the narrowed throat. The atheroprone band below 1 Pa
+stays marked on the lumen boundary, while the unwrapped field sits beside the
+reference solver's answer on a shared colour scale. A switch turns the physics
+prior off so the ablation below stops being a table row and starts being
+something you watch break. It runs on
 localhost with no network access at all, which a test enforces.
 
 ![The demo: a straightened vessel section coloured by wall shear stress, the unwrapped field beside the reference solver, and the query-time readout](docs/images/demo.png)

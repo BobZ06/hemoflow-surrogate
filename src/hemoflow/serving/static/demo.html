@@ -282,7 +282,21 @@
   .frame-head p { margin: 0; font-size: 12px; color: var(--ink-3); }
 
   canvas { display: block; width: 100%; border-radius: 2px; }
-  #artery { height: 244px; background: #0a0e13; }
+  .artery-view { position: relative; }
+  #artery { height: 340px; background: #0a0e13; }
+  #blood { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .flow-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-top: 12px; }
+  .flow-tools button { font: inherit; font-size: 12px; color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--line-bright); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+  .flow-tools button:focus-visible { outline: 2px solid var(--ok); outline-offset: 3px; }
+  .flow-tools label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+  .flow-tools input[type="range"] { width: 90px; }
+  .flow-tools input::-webkit-slider-runnable-track { background: var(--line-bright); }
+  .flow-tools input::-moz-range-track { background: var(--line-bright); }
+  .flow-tools output { font: 11px var(--mono); color: var(--ink); min-width: 3ch; }
+  .flow-metric { font-size: 12px; color: var(--ink-2); }
+  .flow-metric b { font: 12px var(--mono); color: #b7def4; }
+  .flow-key { color: #ed929d; }
 
   .maps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .map h3 {
@@ -301,6 +315,13 @@
   .scale canvas { height: 9px; flex: 1; }
   .scale span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; flex: none; }
 
+  .error-legend { margin-top: 8px; }
+  .error-ramp { height: 9px; border-radius: 2px; background: linear-gradient(to right, #2166ac, #92c5de, #f7f7f5, #f4a582, #b84415); }
+  .error-labels { display: flex; justify-content: space-between; gap: 8px; font: 10px var(--mono); color: var(--ink-2); margin-top: 4px; }
+  .error-info { color: var(--ink-2); font-size: 11px; line-height: 1.6; margin: 7px 0 0; }
+  .error-point { min-height: 3.2em; font: 11px/1.6 var(--mono); color: var(--ink); margin: 7px 0 0; }
+  #m-error { cursor: crosshair; }
+  #error-range { color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-bright); font: 11px var(--mono); border-radius: 3px; }
   .risk-key { display: inline-flex; align-items: center; gap: 6px; }
   .risk-key i { width: 16px; height: 3px; background: var(--risk); border-radius: 2px; display: inline-block; }
 
@@ -446,11 +467,27 @@
 
       <section class="frame">
         <div class="frame-head">
-          <h2>Longitudinal section</h2>
-          <p>Wall colour is shear stress.
+          <h2>Blood flow · translucent vessel</h2>
+          <p>Inner-edge colour is shear stress.
             <span class="risk-key"><i></i> atheroprone, below <span id="thr">1</span>&nbsp;Pa</span></p>
         </div>
-        <canvas id="artery"></canvas>
+        <div class="artery-view">
+          <canvas id="artery" role="img" aria-label="Straightened vessel with wall shear stress colours"></canvas>
+          <canvas id="blood" aria-hidden="true"></canvas>
+        </div>
+        <div class="flow-tools">
+          <button id="flow-pause" type="button" aria-pressed="false">Pause flow</button>
+          <label for="flow-speed">Playback
+            <input id="flow-speed" type="range" min="0.25" max="2" step="0.25" value="1">
+            <output id="flow-speed-v" for="flow-speed">1×</output>
+          </label>
+          <span class="flow-metric">Inlet mean <b id="flow-inlet">—</b></span>
+          <span class="flow-metric">Throat mean <b id="flow-throat">—</b></span>
+          <span class="flow-metric">Acceleration <b id="flow-gain">—</b></span>
+        </div>
+        <p class="note"><span class="flow-key">● Red blood cells · flow →</span>
+          Illustrative 3D projection, translucent wall and enlarged red blood cells; steady motion from Q / area, not a predicted 3D velocity field.
+          Motion is slowed for viewing (<span id="flow-time">—</span> of physical time at 1×).</p>
       </section>
 
       <section class="frame">
@@ -468,12 +505,25 @@
             <canvas id="m-reference"></canvas>
           </div>
           <div class="map">
-            <h3>Difference <em>&plusmn;10%</em></h3>
-            <canvas id="m-error"></canvas>
+            <h3>Relative error
+              <select id="error-range" aria-label="Relative error colour range">
+                <option value="2">±2%</option><option value="5">±5%</option>
+                <option value="10" selected>±10%</option><option value="25">±25%</option>
+                <option value="100">±100%</option>
+              </select>
+            </h3>
+            <canvas id="m-error" role="img" aria-label="Relative WSS error: blue underestimates, orange overestimates"></canvas>
+            <div class="error-legend">
+              <div class="error-ramp"></div>
+              <div class="error-labels"><span id="error-min">−10% · under</span><span>0 · agreement</span><span id="error-max">+10% · over</span></div>
+            </div>
+            <p class="error-info">(Surrogate − reference) / reference × 100. White means near zero.</p>
+            <p class="error-info" id="error-stats"></p>
+            <p class="error-point" id="error-point">Point or tap on the map to inspect WSS and error.</p>
           </div>
         </div>
         <div class="scale">
-          <span>0&nbsp;Pa</span>
+          <span>WSS · first two maps · 0&nbsp;Pa</span>
           <canvas id="bar" height="9"></canvas>
           <span id="bar-max"></span>
         </div>
@@ -518,8 +568,8 @@ const VIRIDIS = [
 /* The difference map is diverging and near-invisible at zero, so structure in
    the residual is what catches the eye rather than its mere existence. */
 const DIVERGING = [
-  [60, 110, 175], [110, 150, 195], [160, 180, 200], [38, 46, 56],
-  [205, 175, 160], [215, 130, 105], [205, 75, 50],
+  [33, 102, 172], [146, 197, 222], [247, 247, 245],
+  [244, 165, 130], [184, 68, 21],
 ];
 
 function ramp(table, t) {
@@ -685,7 +735,7 @@ function fit(canvas) {
 /* The field arrives as [n_arc][n_theta]. Drawing it at native resolution on an
    offscreen canvas and letting the browser scale it up is both faster than
    filling rectangles and gives smooth interpolation for free. */
-function drawField(canvas, field, toColour) {
+function drawField(canvas, field, toColour, smooth = true) {
   const nArc = field.length, nTheta = field[0].length;
   const off = document.createElement("canvas");
   off.width = nArc; off.height = nTheta;
@@ -704,7 +754,7 @@ function drawField(canvas, field, toColour) {
 
   const { ctx, w, h } = fit(canvas);
   ctx.clearRect(0, 0, w, h);
-  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingEnabled = smooth;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(off, 0, 0, w, h);
 }
@@ -758,47 +808,23 @@ function drawArtery(canvas, walls, vmax, threshold) {
     if (radius[i] > maxRadius) maxRadius = radius[i];
   }
 
-  const padX = 30, padY = 34;
+  const padX = 48;
   const scale = (w - 2 * padX) / Math.max(travelled, 1e-9);
   const k = Math.max(1, Math.min(80, (0.34 * h) / Math.max(maxRadius * scale, 1e-9)));
   const midY = h / 2;
-  const X = (i) => padX + arc[i] * scale;
-  const Y = (i, side) => midY - side * radius[i] * k * scale;
 
-  ctx.beginPath();
-  for (let i = 0; i < n; i++) { i ? ctx.lineTo(X(i), Y(i, 1)) : ctx.moveTo(X(i), Y(i, 1)); }
-  for (let i = n - 1; i >= 0; i--) ctx.lineTo(X(i), Y(i, -1));
-  ctx.closePath();
-  ctx.fillStyle = "#171f29";
-  ctx.fill();
-
-  const wallWidth = 4.5;
-
-  for (const side of [1, -1]) {
-    const trace = side === 1 ? walls.outer : walls.inner;
-
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = wallWidth;
-    for (let i = 0; i < n - 1; i++) {
-      ctx.beginPath();
-      ctx.moveTo(X(i), Y(i, side));
-      ctx.lineTo(X(i + 1), Y(i + 1, side));
-      ctx.strokeStyle = css(ramp(VIRIDIS, ((trace[i].wss + trace[i + 1].wss) / 2) / vmax));
-      ctx.stroke();
-    }
-
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#ff5c3c";
-    for (let i = 0; i < n - 1; i++) {
-      if ((trace[i].wss + trace[i + 1].wss) / 2 >= threshold) continue;
-      const dy = -side * (wallWidth / 2 + 5);
-      ctx.beginPath();
-      ctx.moveTo(X(i), Y(i, side) + dy);
-      ctx.lineTo(X(i + 1), Y(i + 1, side) + dy);
-      ctx.stroke();
-    }
-  }
+  const g = { arc, radius, travelled, scale, k, midY, padX, walls, vmax };
+  // Project the circular cross-section into an ellipse. Front/back surfaces
+  // share the measured radius profile; lighting uses the circular normal.
+  paintTubeSurface(ctx, g, false);
+  const front = document.createElement("canvas");
+  const dpr = window.devicePixelRatio || 1;
+  front.width = Math.round(w * dpr); front.height = Math.round(h * dpr);
+  const frontCtx = front.getContext("2d");
+  frontCtx.scale(dpr, dpr);
+  paintTubeSurface(frontCtx, g, true);
+  g.front = front;
+  g.width = w; g.height = h;
 
   ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
   ctx.textBaseline = "middle";
@@ -808,6 +834,257 @@ function drawArtery(canvas, walls, vmax, threshold) {
   ctx.textAlign = "right";
   ctx.fillText("straightened along the centerline · radius ×" + k.toFixed(1), w - 8, h - 13);
   ctx.textAlign = "left";
+  return g;
+}
+
+// Render cached projected cylindrical surfaces. The view is illustrative:
+// depth is exaggerated for legibility, while the lumen/WSS grid is unchanged.
+function paintTubeSurface(ctx, g, front) {
+  const n = g.arc.length;
+  const project = (i, u) => {
+    const r = g.radius[i] * g.k * g.scale;
+    const z = Math.sqrt(Math.max(0, 1 - u * u));
+    return [g.padX + g.arc[i] * g.scale + (front ? -1 : 1) * r * 0.23 * z,
+      g.midY + u * r];
+  };
+  const bands = 100;
+  for (let band = 0; band < bands; band++) {
+    const u0 = -1 + 2 * band / bands;
+    const u1 = Math.min(1, -1 + 2 * (band + 1) / bands + 0.0015);
+    const u = (u0 + u1) / 2;
+    const z = Math.sqrt(1 - u * u);
+    const diffuse = Math.max(0, -u * 0.65 + z * 0.75);
+    const specular = Math.exp(-(((u + 0.49) / 0.115) ** 2));
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) i ? ctx.lineTo(...project(i, u0)) : ctx.moveTo(...project(i, u0));
+    for (let i = n - 1; i >= 0; i--) ctx.lineTo(...project(i, u1));
+    ctx.closePath();
+    if (front) {
+      const alpha = 0.13 + 0.24 * (1 - z) + 0.22 * specular;
+      ctx.fillStyle = `rgba(${Math.round(102 + diffuse * 81 + specular * 58)},${Math.round(48 + diffuse * 52 + specular * 84)},${Math.round(64 + diffuse * 57 + specular * 74)},${alpha})`;
+    } else {
+      ctx.fillStyle = `rgb(${Math.round(31 + diffuse * 45)},${Math.round(20 + diffuse * 19)},${Math.round(31 + diffuse * 28)})`;
+    }
+    ctx.fill();
+  }
+  if (!front) return;
+  // A few faint oblique fibres wrap around the surface, rather than forming
+  // two flat wall bands. Stable coordinates prevent shimmer when redrawing.
+  ctx.save();
+  for (let j = 0; j < 36; j++) {
+    ctx.beginPath();
+    for (let k = 0; k <= 32; k++) {
+      const angle = -Math.PI / 2 + k / 32 * Math.PI;
+      const a = Math.max(0, Math.min(n - 1, (j + 0.5) / 36 * (n - 1) + Math.sin(angle) * 1.5));
+      const i = Math.min(n - 2, Math.floor(a)), t = a - i;
+      const r = (g.radius[i] * (1-t) + g.radius[i+1] * t) * g.k * g.scale;
+      const x = g.padX + (g.arc[i] * (1-t) + g.arc[i+1] * t) * g.scale - Math.cos(angle) * r * 0.23;
+      const y = g.midY + Math.sin(angle) * r;
+      k ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    }
+    ctx.strokeStyle = "rgba(218,153,163,0.045)"; ctx.lineWidth = 0.65; ctx.stroke();
+  }
+  // Open annular end faces are the clearest depth cue: a visible lumen inside
+  // the elliptical wall rim. Never fill the opening with an opaque cap.
+  for (const i of [n - 1, 0]) {
+    const r = g.radius[i] * g.k * g.scale;
+    const x = g.padX + g.arc[i] * g.scale;
+    const ring = ctx.createLinearGradient(x-r*0.25, g.midY-r, x+r*0.25, g.midY+r);
+    ring.addColorStop(0,"#d2a2ac"); ring.addColorStop(0.28,"#a5687c");
+    ring.addColorStop(0.65,"#63364c"); ring.addColorStop(1,"#b0798d");
+    ctx.beginPath(); ctx.ellipse(x,g.midY,r*0.23+3,r+3,0,0,Math.PI*2);
+    ctx.ellipse(x,g.midY,Math.max(1,r*0.23-2),Math.max(1,r-2),0,0,Math.PI*2,true);
+    ctx.fillStyle=ring;ctx.fill();
+    ctx.beginPath();ctx.ellipse(x,g.midY,r*0.23+3,r+3,0,Math.PI,Math.PI*1.8);
+    ctx.strokeStyle="rgba(251,217,222,0.5)";ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* Particle transport uses cumulative cross-sectional volume as its coordinate.
+   Equal increments in this coordinate conserve Q: ds/dt = Q / (pi r²).
+   Each radial lane has a parabolic axial-speed factor. This is a visual
+   approximation, independent of WSS inference; it does not model separation.
+   The static wall and maps are never repainted by the animation loop. */
+const flowMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const FLOW = { geometry: null, phase: 0, lastTime: null, frame: null,
+  paused: flowMotion.matches, speed: 1, volume: [], totalVolume: 1,
+  rate: 0, timeScale: 0.08 };
+let lastView = null;
+
+function updateFlow(geometry, radii, body) {
+  FLOW.geometry = geometry;
+  FLOW.volume = [0];
+  for (let i = 1; i < radii.length; i++) {
+    const ds = geometry.arc[i] - geometry.arc[i - 1];
+    FLOW.volume.push(FLOW.volume[i - 1]
+      + Math.PI * (radii[i - 1] ** 2 + radii[i] ** 2) * 0.5 * ds);
+  }
+  FLOW.totalVolume = FLOW.volume.at(-1);
+  const q = body.flow_ml_s * 1000; // mm³/s; backend geometry is in mm
+  const inlet = q / (Math.PI * radii[0] ** 2) / 1000;
+  const throat = q / (Math.PI * Math.min(...radii) ** 2) / 1000;
+  // Use a fixed time scale in normal cases; bound extreme out-of-range cases
+  // so capillary presets do not alias into apparently stationary particles.
+  FLOW.timeScale = Math.min(0.08, 1.5 * FLOW.totalVolume / q);
+  FLOW.rate = q * FLOW.timeScale / FLOW.totalVolume;
+  el("flow-inlet").textContent = inlet.toFixed(3) + " m/s";
+  el("flow-throat").textContent = throat.toFixed(3) + " m/s";
+  el("flow-gain").textContent = (throat / inlet).toFixed(1) + "×";
+  el("flow-time").textContent = FLOW.timeScale.toPrecision(2) + "×";
+  paintFlow();
+  scheduleFlow();
+}
+
+function flowPoint(fraction, lane) {
+  const g = FLOW.geometry, volume = FLOW.volume;
+  const target = fraction * FLOW.totalVolume;
+  let lo = 0, hi = volume.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (volume[mid] <= target) lo = mid; else hi = mid;
+  }
+  const t = (target - volume[lo]) / Math.max(volume[hi] - volume[lo], 1e-12);
+  const arc = g.arc[lo] + t * (g.arc[hi] - g.arc[lo]);
+  const r = g.radius[lo] + t * (g.radius[hi] - g.radius[lo]);
+  return [g.padX + arc * g.scale, g.midY + lane * r * g.k * g.scale];
+}
+
+// Cache shaded biconcave discs once; each frame only rotates/scales sprites.
+// Cell size is illustrative, independent of vessel diameter and WSS colours.
+const CELL_SPRITES = Array.from({ length: 3 }, (_, variant) => {
+  const sprite = document.createElement("canvas");
+  sprite.width = 80; sprite.height = 80;
+  const c = sprite.getContext("2d");
+  c.translate(40, 40);
+  c.beginPath(); c.ellipse(0, 0, 30, 27, 0, 0, Math.PI * 2);
+  const body = c.createRadialGradient(-8, -10, 2, 0, 0, 33);
+  body.addColorStop(0, "#f08c88");
+  body.addColorStop(0.38, variant === 1 ? "#d85662" : "#df6269");
+  body.addColorStop(0.68, "#bb3048");
+  body.addColorStop(0.87, "#811a33");
+  body.addColorStop(1, "#460f24");
+  c.fillStyle = body; c.shadowColor = "rgba(0,0,0,0.45)";
+  c.shadowBlur = 5; c.shadowOffsetY = 3; c.fill();
+  c.shadowBlur = 0; c.shadowOffsetY = 0;
+  // Dark central depression with a soft illuminated lip suggests a concave face.
+  const hollow = c.createRadialGradient(2, 3, 1, 0, 1, 17);
+  hollow.addColorStop(0, "rgba(87,12,35,0.85)");
+  hollow.addColorStop(0.55, "rgba(139,28,49,0.64)");
+  hollow.addColorStop(1, "rgba(226,103,111,0)");
+  c.fillStyle = hollow;
+  c.beginPath(); c.ellipse(0, 1, 18, 15, -0.2, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(-1, -1, 24, 21, -0.2, 3.4, 5.5);
+  c.strokeStyle = "rgba(255,184,174,0.48)"; c.lineWidth = 2.2; c.stroke();
+  return sprite;
+});
+
+function paintFlow() {
+  const { ctx, w, h } = fit(el("blood"));
+  ctx.clearRect(0, 0, w, h);
+  if (!FLOW.geometry) return;
+  const g = FLOW.geometry;
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < g.arc.length; i++) {
+    const x = g.padX + g.arc[i] * g.scale;
+    const y = g.midY - g.radius[i] * g.k * g.scale;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  for (let i = g.arc.length - 1; i >= 0; i--) {
+    ctx.lineTo(g.padX + g.arc[i] * g.scale, g.midY + g.radius[i] * g.k * g.scale);
+  }
+  ctx.closePath(); ctx.clip();
+  const wash = ctx.createLinearGradient(0, h * 0.15, 0, h * 0.85);
+  wash.addColorStop(0, "rgba(105,171,210,0)");
+  wash.addColorStop(0.5, "rgba(134,40,61,0.12)");
+  wash.addColorStop(1, "rgba(105,171,210,0)");
+  ctx.fillStyle = wash; ctx.fillRect(0, 0, w, h);
+  for (let row = -4; row <= 4; row++) {
+    const lane = row * 0.19;
+    const factor = 2 * (1 - lane * lane);
+    ctx.beginPath();
+    for (let i = 0; i < g.arc.length; i++) {
+      const x = g.padX + g.arc[i] * g.scale;
+      const y = g.midY + lane * g.radius[i] * g.k * g.scale;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(184,149,166,0.065)"; ctx.lineWidth = 0.7; ctx.stroke();
+    for (let j = 0; j < 11; j++) {
+      const seed = (row + 4) * 19 + j * 7;
+      const f = (j / 11 + (row + 4) * 0.037 + FLOW.phase * factor) % 1;
+      const radialOffset = 0.025 * Math.sin(seed * 2.39);
+      const [x, y] = flowPoint(f, lane + radialOffset);
+      const ahead = flowPoint(Math.min(1, f + 0.003), lane + radialOffset);
+      const behind = flowPoint(Math.max(0, f - 0.003), lane + radialOffset);
+      const heading = Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]);
+      const tumble = FLOW.phase * factor * 4 + seed;
+      const tilt = 0.38 + 0.62 * Math.abs(Math.cos(tumble));
+      const size = 13 + 3 * (0.5 + 0.5 * Math.sin(seed * 1.71));
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(heading + 0.45 * Math.sin(tumble * 0.7));
+      ctx.scale(1, tilt);
+      ctx.globalAlpha = 0.80 + 0.20 * (1 - Math.abs(lane));
+      ctx.drawImage(CELL_SPRITES[seed % CELL_SPRITES.length], -size / 2, -size / 2, size, size);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+  // Cells lie between the rear wall and translucent front membrane.
+  ctx.drawImage(g.front, 0, 0, g.width, g.height);
+  // WSS and low-shear markers always render above the animated lumen.
+  paintWallOverlay(ctx, g);
+}
+
+function paintWallOverlay(ctx, g) {
+  const { walls, vmax } = g;
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const side of [1, -1]) {
+    const trace = side === 1 ? walls.outer : walls.inner;
+    const point = (i, offset = 0) => [g.padX + g.arc[i] * g.scale,
+      g.midY - side * (g.radius[i] * g.k * g.scale + offset)];
+    // Dark casing maintains contrast against both cells and surface lighting.
+    ctx.beginPath();
+    trace.forEach((_, i) => i ? ctx.lineTo(...point(i)) : ctx.moveTo(...point(i)));
+    ctx.strokeStyle = "#090e16"; ctx.lineWidth = 7; ctx.stroke();
+    for (let i = 0; i < trace.length - 1; i++) {
+      const value = (trace[i].wss + trace[i + 1].wss) / 2;
+      ctx.beginPath(); ctx.moveTo(...point(i)); ctx.lineTo(...point(i + 1));
+      ctx.strokeStyle = css(ramp(VIRIDIS, value / vmax)); ctx.lineWidth = 4; ctx.stroke();
+      if (value < THRESHOLD) {
+        ctx.beginPath(); ctx.moveTo(...point(i, 9)); ctx.lineTo(...point(i + 1, 9));
+        ctx.strokeStyle = "#ff5c3c"; ctx.lineWidth = 2.5; ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function scheduleFlow() {
+  if (FLOW.frame === null && FLOW.geometry && !FLOW.paused && !document.hidden) {
+    FLOW.frame = requestAnimationFrame(animateFlow);
+  }
+}
+
+function animateFlow(now) {
+  FLOW.frame = null;
+  if (FLOW.paused || document.hidden) { FLOW.lastTime = null; return; }
+  const dt = FLOW.lastTime === null ? 0 : Math.min((now - FLOW.lastTime) / 1000, 0.05);
+  FLOW.lastTime = now;
+  FLOW.phase += dt * FLOW.rate * FLOW.speed;
+  paintFlow();
+  scheduleFlow();
+}
+
+function syncFlowPlayback() {
+  FLOW.lastTime = null;
+  if (FLOW.frame !== null) cancelAnimationFrame(FLOW.frame);
+  FLOW.frame = null;
+  el("flow-pause").setAttribute("aria-pressed", String(FLOW.paused));
+  el("flow-pause").textContent = FLOW.paused ? "Play flow" : "Pause flow";
+  scheduleFlow();
 }
 
 /* =====================================================================
@@ -869,13 +1146,12 @@ function render(result, body) {
   let vmax = 1e-6;
   for (const column of reference) for (const v of column) if (v > vmax) vmax = v;
 
-  drawArtery(el("artery"), result.walls, vmax, THRESHOLD);
+  lastView = { result, body };
+  const geometry = drawArtery(el("artery"), result.walls, vmax, THRESHOLD);
+  updateFlow(geometry, result.radii_mm, body);
   drawField(el("m-surrogate"), surrogate, (v) => ramp(VIRIDIS, v / vmax));
   drawField(el("m-reference"), reference, (v) => ramp(VIRIDIS, v / vmax));
-  drawField(el("m-error"),
-    surrogate.map((column, a) =>
-      column.map((v, t) => (v - reference[a][t]) / Math.max(reference[a][t], 1e-9))),
-    (d) => ramp(DIVERGING, 0.5 + d / 0.2));
+  drawErrorMap(result);
 
   drawColourBar(el("bar"));
   el("bar-max").textContent = vmax.toFixed(vmax < 10 ? 2 : 0) + " Pa";
@@ -922,6 +1198,33 @@ function render(result, body) {
   }
 }
 
+function drawErrorMap(result) {
+  const limit = +el("error-range").value;
+  const errors = result.fields.surrogate.map((column, a) =>
+    column.map((v, t) => 100 * (v - result.fields.reference[a][t])
+      / Math.max(result.fields.reference[a][t], 1e-9)));
+  drawField(el("m-error"), errors, v => ramp(DIVERGING, 0.5 + v / (2 * limit)), false);
+  const magnitudes = errors.flat().map(Math.abs).sort((a,b) => a-b);
+  const median = (magnitudes[Math.floor((magnitudes.length-1)/2)] + magnitudes[Math.floor(magnitudes.length/2)]) / 2;
+  const clipped = magnitudes.filter(v => v > limit).length / magnitudes.length * 100;
+  el("error-min").textContent = `−${limit}% · under`;
+  el("error-max").textContent = `+${limit}% · over`;
+  el("error-stats").textContent = `Median |error| ${median.toFixed(1)}% · max ${magnitudes.at(-1).toFixed(1)}% · ${clipped.toFixed(1)}% of nodes beyond colour range (saturated).`;
+  el("error-point").textContent = "Point or tap on the map to inspect WSS and error.";
+}
+
+function inspectError(event) {
+  if (!lastView) return;
+  const rect = el("m-error").getBoundingClientRect();
+  const fields = lastView.result.fields;
+  const na = fields.reference.length, nt = fields.reference[0].length;
+  const a = Math.max(0, Math.min(na-1, Math.floor((event.clientX-rect.left)/rect.width*na)));
+  const t = Math.max(0, Math.min(nt-1, Math.floor((event.clientY-rect.top)/rect.height*nt)));
+  const ref = fields.reference[a][t], pred = fields.surrogate[a][t];
+  const error = 100 * (pred-ref) / Math.max(ref, 1e-9);
+  el("error-point").textContent = `Along ${(a/(na-1)*100).toFixed(0)}% · θ ${(t/nt*360).toFixed(0)}° | predicted ${pred.toFixed(3)} Pa · reference ${ref.toFixed(3)} Pa | ${error >= 0 ? "+" : ""}${error.toFixed(2)}%`;
+}
+
 function formatPa(v) {
   if (v >= 1000) return (v / 1000).toFixed(1) + " <small>kPa</small>";
   return v.toFixed(2) + " <small>Pa</small>";
@@ -939,6 +1242,25 @@ function formatSpeedup(value) {
 
 async function boot() {
   buildPresets();
+  el("error-range").addEventListener("change", () => {
+    if (lastView) drawErrorMap(lastView.result);
+  });
+  el("m-error").addEventListener("pointermove", inspectError);
+  el("m-error").addEventListener("pointerdown", inspectError);
+  el("flow-pause").addEventListener("click", () => {
+    FLOW.paused = !FLOW.paused;
+    syncFlowPlayback();
+  });
+  el("flow-speed").addEventListener("input", () => {
+    FLOW.speed = +el("flow-speed").value;
+    el("flow-speed-v").textContent = FLOW.speed + "×";
+  });
+  document.addEventListener("visibilitychange", syncFlowPlayback);
+  flowMotion.addEventListener("change", (event) => {
+    FLOW.paused = event.matches;
+    syncFlowPlayback();
+  });
+  syncFlowPlayback();
   el("dia").value = DIA.toSlider(4.6);
   el("flo").value = FLO.toSlider(2.8);
 
@@ -960,7 +1282,10 @@ async function boot() {
   let resizeTimer = null;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { paintEnvelope(); request(); }, 120);
+    resizeTimer = setTimeout(() => {
+      paintEnvelope();
+      if (lastView) render(lastView.result, lastView.body);
+    }, 120);
   });
 
   let status;
